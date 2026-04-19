@@ -2,3 +2,5 @@ flask
 wordfreq
 nltk
 gensim
+flask-cors
+requests
