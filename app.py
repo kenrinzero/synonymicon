@@ -1,4 +1,7 @@
+import json
 import gensim.downloader as api
+import requests
+from bs4 import BeautifulSoup
 from flask import Flask, request, jsonify
 from nltk.corpus import wordnet
 from wordfreq import zipf_frequency
@@ -17,6 +20,12 @@ FASTTEXT_COSINE_CUTOFF = 0.6
 
 FASTTEXT_MODEL = api.load('fasttext-wiki-news-subwords-300')
 
+with open('data/websters1913.json') as f:
+    WEBSTERS = {k.lower(): v for k, v in json.load(f).items()}
+
+WIKTIONARY_CACHE = {}
+WIKTIONARY_HEADERS = {'User-Agent': 'Synonymicon/0.1 (dev; contact: local)'}
+
 
 def get_wordnet_candidates(word):
     """Union of lemmas across all synsets for the input word, excluding the input itself."""
@@ -34,6 +43,60 @@ def get_fasttext_candidates(word, n=100):
         return [(w, score) for w, score in FASTTEXT_MODEL.most_similar(word, topn=n) if w != word]
     except KeyError:
         return []
+
+
+def get_wiktionary_definition(word):
+    key = word.lower()
+    if key in WIKTIONARY_CACHE:
+        return WIKTIONARY_CACHE[key]
+    try:
+        url = f'https://en.wiktionary.org/api/rest_v1/page/definition/{key}'
+        r = requests.get(url, headers=WIKTIONARY_HEADERS, timeout=2.0)
+        if r.status_code != 200:
+            WIKTIONARY_CACHE[key] = None
+            return None
+        data = r.json()
+        en_entries = data.get('en')
+        if not en_entries:
+            WIKTIONARY_CACHE[key] = None
+            return None
+        definitions = en_entries[0].get('definitions', [])
+        if not definitions:
+            WIKTIONARY_CACHE[key] = None
+            return None
+        html = definitions[0].get('definition', '')
+        text = BeautifulSoup(html, 'html.parser').get_text().strip()
+        WIKTIONARY_CACHE[key] = text if text else None
+        return WIKTIONARY_CACHE[key]
+    except Exception:
+        WIKTIONARY_CACHE[key] = None
+        return None
+
+
+def get_websters_definition(word):
+    return WEBSTERS.get(word.lower())
+
+
+def get_wordnet_gloss(word):
+    synsets = wordnet.synsets(word)
+    if synsets:
+        defn = synsets[0].definition()
+        if defn:
+            return defn
+    return None
+
+
+def get_definition(word):
+    d = get_wiktionary_definition(word)
+    if d:
+        return d
+    d = get_websters_definition(word)
+    if d:
+        return d
+    d = get_wordnet_gloss(word)
+    if d:
+        return d
+    return "[undefined]"
 
 
 def get_blended_results(word, tier=None, zmin=None, zmax=None):
@@ -108,7 +171,7 @@ def synonyms():
         results = get_blended_results(word, tier=tier)
 
     return jsonify([
-        {'word': w, 'zipf': z, 'definition': None}
+        {'word': w, 'zipf': z, 'definition': get_definition(w)}
         for w, z in results
     ])
 
