@@ -1,7 +1,7 @@
 # Synonymicon — CLAUDE.md
 
 ## What this is
-A frequency-driven discovery tool for obscure English synonyms. Not a general thesaurus. Not a dictionary. Not a vocabulary learning tool. Common words are inputs, not outputs. The point is to excavate rare lexical outliers at user-controlled levels of obscurity.
+A frequency-driven discovery tool for obscure English synonyms. Not a general thesaurus or dictionary. Not a vocabulary learning tool. Common words are inputs, not outputs. The point is to excavate rare lexical outliers at user-controlled levels of obscurity.
 
 ## Stack
 - **Python + Flask**, synchronous, single-process
@@ -47,13 +47,11 @@ Dev server on localhost:5000.
 ## Non-goals — do not add these
 - General synonyms or common words in results
 - Dictionary-like features (etymology, pronunciation, usage examples)
-- Vocabulary quizzes or learning tools
 - Languages other than English
 - Dark, OLED, or Dictionary visual themes (post-MVP)
 - Part-of-speech filtering (post-MVP)
 - Pivot-on-click (post-MVP)
-- "Surprise me" button (post-MVP)
-- Mobile-specific layout for Dictionary mode
+- Mobile-specific layout 
 - Any database, ORM, or persistent storage
 - Additional frequency corpora beyond wordfreq (post-MVP)
 
