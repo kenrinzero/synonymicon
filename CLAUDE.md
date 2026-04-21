@@ -1,4 +1,4 @@
-# Synonymicon — CLAUDE.md
+# Synonymicon 
 
 ## What this is
 A frequency-driven discovery tool for obscure English synonyms. Not a general thesaurus or dictionary. Not a vocabulary learning tool. Common words are inputs, not outputs. The point is to excavate rare lexical outliers at user-controlled levels of obscurity.
@@ -10,12 +10,12 @@ A frequency-driven discovery tool for obscure English synonyms. Not a general th
 - **NLTK WordNet** — primary synonym source (synset lemmas)
 - **fastText** (fasttext-wiki-news-subwords-300 via gensim) — secondary/fallback synonym source. Note: the gensim distribution is KeyedVectors (pretrained vectors only), not the full FastText model — OOV inputs raise KeyError and must be caught. WordNet still covers OOV cases.
 - **Definition fallback chain:** Wiktionary API → Webster's 1913 (local JSON at `data/websters1913.json`) → WordNet gloss → `"[undefined]"` (literal string, rendered in italics). Wiktionary REST API requires a descriptive `User-Agent` header per Wikimedia policy — requests without one return 403 or get rate-limited. Use `requests` for fetches and `beautifulsoup4` (`bs4`) for HTML stripping.
-- Frontend: single-file HTML/CSS/JS served from `static/`. Modern Light theme only for MVP
+- **Frontend:** single-page HTML/CSS/JS served from `static/`. Modern Light theme for MVP; dark, OLED, and Dictionary modes are post-MVP.
 
 ## Layout
 - `app.py` — Flask app, all backend logic
 - `data/websters1913.json` — Webster's 1913, loaded at startup
-- `static/` — frontend (used from Session 4)
+- `static/` — frontend files (index.html plus optional style.css / app.js)
 - `.venv/` — Python venv (gitignored)
 
 ## Frequency tiers
@@ -55,25 +55,26 @@ Parameter precedence:
 ```bash
 cd ~/projects/synonymicon
 source .venv/bin/activate
-flask run --debug
+flask run --no-reload
 ```
-Dev server on localhost:5000.
+Dev server on localhost:5000. Use `--no-reload` because the fastText model loads at module scope and the reloader would spawn two processes that both load it.
 
 ## Non-goals — do not add these
 - General synonyms or common words in results
 - Dictionary-like features (etymology, pronunciation, usage examples)
 - Languages other than English
-- Dark, OLED, or Dictionary visual themes (post-MVP)
+- Dark, OLED, or Dictionary visual themes until their dedicated sessions
 - Part-of-speech filtering (post-MVP)
 - Pivot-on-click (post-MVP)
-- Mobile-specific layout 
+- Mobile-specific layout
 - Any database, ORM, or persistent storage
 - Additional frequency corpora beyond wordfreq (post-MVP)
 
 ## Scope rails
-- Do not introduce a database
-- Ephemeral in-memory caches are fine; do not add persistent storage
-- Do not add features outside the MVP scope listed above
-- Do not "improve" the minimalist UI with animations, shadows, or unrequested elements
-- The recursive scrolling loop (results rendered twice for seamless endless effect) is intentional — do not "fix" it
-- Keep the frontend as simple inline HTML/CSS/JS. No build tools, no bundler, no framework
+- Do not introduce a database. Ephemeral in-memory caches are fine; do not add persistent storage.
+- Do not add features outside the MVP scope listed above.
+- Do not "improve" the minimalist UI with animations, shadows, decorative cards, helper panels, or unrequested elements.
+- The frontend layout is desktop-first and a strict 50/50 split: left half fixed for controls and search, right half scrollable for results only. No header bar, no controls on the right side.
+- Results render in two distinct columns on the right half using alternating assignment from the backend-ordered list (1st → A, 2nd → B, 3rd → A, …). Do not duplicate the same results across both columns. No recursive or looped result repetition.
+- Frontend is plain inline or lightly split HTML/CSS/JS. No build tools, no bundler, no framework.
+- Do not do client-side sorting, scoring, definition lookup, or ranking — the backend returns results in final order; render as-is.
