@@ -4,3 +4,4 @@ nltk
 gensim
 flask-cors
 requests
+beautifulsoup4

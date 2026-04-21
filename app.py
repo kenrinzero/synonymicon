@@ -1,3 +1,4 @@
+import gensim.downloader as api
 from flask import Flask, request, jsonify
 from nltk.corpus import wordnet
 from wordfreq import zipf_frequency
@@ -11,6 +12,10 @@ TIERS = {
     'absurd':   (float('-inf'), 1.0),
 }
 COMMON_FLOOR = 4.0
+WORDNET_SCORE = 1.5
+FASTTEXT_COSINE_CUTOFF = 0.6
+
+FASTTEXT_MODEL = api.load('fasttext-wiki-news-subwords-300')
 
 
 def get_wordnet_candidates(word):
@@ -24,8 +29,30 @@ def get_wordnet_candidates(word):
     return candidates
 
 
-def filter_by_zipf(candidates, tier=None, zmin=None, zmax=None):
-    """Look up Zipf for each candidate, filter by range, return sorted list of (word, zipf)."""
+def get_fasttext_candidates(word, n=100):
+    try:
+        return [(w, score) for w, score in FASTTEXT_MODEL.most_similar(word, topn=n) if w != word]
+    except KeyError:
+        return []
+
+
+def get_blended_results(word, tier=None, zmin=None, zmax=None):
+    """Merge WordNet + fastText candidates with blended scoring."""
+    # Gather candidates from both sources
+    wn_candidates = get_wordnet_candidates(word)
+    ft_candidates = get_fasttext_candidates(word)
+
+    # Build scored dict: {lowercase_word: (display_word, score)}
+    scored = {}
+    for c in wn_candidates:
+        key = c.lower()
+        scored[key] = (c, WORDNET_SCORE)
+    for w, cosine in ft_candidates:
+        key = w.lower()
+        if key not in scored and cosine >= FASTTEXT_COSINE_CUTOFF:
+            scored[key] = (w.replace('_', ' '), cosine)
+
+    # Frequency filter
     if zmin is not None and zmax is not None:
         lo, hi = zmin, zmax
     elif tier is not None:
@@ -34,12 +61,14 @@ def filter_by_zipf(candidates, tier=None, zmin=None, zmax=None):
         raise ValueError("Either tier or both zmin/zmax must be provided")
 
     results = []
-    for word in candidates:
-        z = zipf_frequency(word, 'en')
+    for key, (display, score) in scored.items():
+        z = zipf_frequency(key, 'en')
         if z < COMMON_FLOOR and lo <= z < hi:
-            results.append((word, z))
-    results.sort(key=lambda x: x[0])
-    return results
+            results.append((display, z, score))
+
+    # Sort: score descending, Zipf ascending as tiebreaker
+    results.sort(key=lambda x: (-x[2], x[1]))
+    return [(w, z) for w, z, _ in results]
 
 
 @app.route('/synonyms')
@@ -63,8 +92,7 @@ def synonyms():
             zmax = float(max_raw)
         except ValueError:
             return jsonify({'error': 'min and max must be numeric'}), 400
-        candidates = get_wordnet_candidates(word)
-        results = filter_by_zipf(candidates, zmin=zmin, zmax=zmax)
+        results = get_blended_results(word, zmin=zmin, zmax=zmax)
     elif has_min or has_max:
         # Exactly one supplied → 400
         return jsonify({'error': 'both min and max must be provided together'}), 400
@@ -77,8 +105,7 @@ def synonyms():
                 'error': f'unknown tier: {tier}',
                 'available_tiers': list(TIERS.keys()),
             }), 400
-        candidates = get_wordnet_candidates(word)
-        results = filter_by_zipf(candidates, tier=tier)
+        results = get_blended_results(word, tier=tier)
 
     return jsonify([
         {'word': w, 'zipf': z, 'definition': None}
