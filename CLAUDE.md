@@ -8,9 +8,15 @@ A frequency-driven discovery tool for obscure English synonyms. Not a general th
 - **No database** — all state computed on the fly, nothing persisted
 - **wordfreq** for frequency: `zipf_frequency(word, 'en')` at query time. No precomputed frequency index. Zipf scale: 0 = vanishingly rare, 7 = extremely common
 - **NLTK WordNet** — primary synonym source (synset lemmas)
-- **fastText** (`fasttext-wiki-news-subwords-300` via gensim) — secondary/fallback synonym source. Subword tokenization handles rare and archaic vocabulary that token-level models miss
-- **Definition fallback chain:** Wiktionary API → Webster's 1913 (local JSON at `data/websters1913.json`) → WordNet gloss → `"[undefined]"` (literal string, rendered in italics)
+- **fastText** (fasttext-wiki-news-subwords-300 via gensim) — secondary/fallback synonym source. Note: the gensim distribution is KeyedVectors (pretrained vectors only), not the full FastText model — OOV inputs raise KeyError and must be caught. WordNet still covers OOV cases.
+- **Definition fallback chain:** Wiktionary API → Webster's 1913 (local JSON at `data/websters1913.json`) → WordNet gloss → `"[undefined]"` (literal string, rendered in italics). Wiktionary REST API requires a descriptive `User-Agent` header per Wikimedia policy — requests without one return 403 or get rate-limited.
 - Frontend: single-file HTML/CSS/JS served from `static/`. Modern Light theme only for MVP
+
+## Layout
+- `app.py` — Flask app, all backend logic
+- `data/websters1913.json` — Webster's 1913, loaded at startup
+- `static/` — frontend (used from Session 4)
+- `.venv/` — Python venv (gitignored)
 
 ## Frequency tiers
 ```python
@@ -34,7 +40,14 @@ Blended single list, no source labels exposed in UI:
 
 ## API
 `GET /synonyms?word=<x>&tier=<t>` — returns JSON list of `{word, zipf, definition}`
-Optional: `min` and `max` (Zipf floats) override `tier` for advanced mode.
+Optional: `min` and `max` (Zipf floats) for advanced mode.
+
+Parameter precedence:
+- Both `min` and `max` → advanced mode; `tier` ignored if present
+- Exactly one of `min`/`max` → 400
+- Neither → use `tier`; missing `tier` → 400
+- Unknown `tier` value → 400 with available tier names
+- Missing `word` → 400
 
 ## Run commands
 ```bash
