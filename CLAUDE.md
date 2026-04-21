@@ -9,7 +9,7 @@ A frequency-driven discovery tool for obscure English synonyms. Not a general th
 - **wordfreq** for frequency: `zipf_frequency(word, 'en')` at query time. No precomputed frequency index. Zipf scale: 0 = vanishingly rare, 7 = extremely common
 - **NLTK WordNet** — primary synonym source (synset lemmas)
 - **fastText** (fasttext-wiki-news-subwords-300 via gensim) — secondary/fallback synonym source. Note: the gensim distribution is KeyedVectors (pretrained vectors only), not the full FastText model — OOV inputs raise KeyError and must be caught. WordNet still covers OOV cases.
-- **Definition fallback chain:** Wiktionary API → Webster's 1913 (local JSON at `data/websters1913.json`) → WordNet gloss → `"[undefined]"` (literal string, rendered in italics). Wiktionary REST API requires a descriptive `User-Agent` header per Wikimedia policy — requests without one return 403 or get rate-limited.
+- **Definition fallback chain:** Wiktionary API → Webster's 1913 (local JSON at `data/websters1913.json`) → WordNet gloss → `"[undefined]"` (literal string, rendered in italics). Wiktionary REST API requires a descriptive `User-Agent` header per Wikimedia policy — requests without one return 403 or get rate-limited. Use `requests` for fetches and `beautifulsoup4` (`bs4`) for HTML stripping.
 - Frontend: single-file HTML/CSS/JS served from `static/`. Modern Light theme only for MVP
 
 ## Layout
@@ -35,6 +35,8 @@ Blended single list, no source labels exposed in UI:
 - WordNet candidates: flat score = 1.5
 - fastText candidates: score = cosine similarity
 - Overlap: WordNet wins (true synonym trumps embedding neighbor)
+- Normalize for comparison/lookup on lowercase; WordNet lemma underscores become spaces
+- Multiword candidates are allowed for MVP
 - fastText cosine cutoff: `FASTTEXT_COSINE_CUTOFF = 0.6` (candidates below this are dropped)
 - Sort: score descending, Zipf ascending as tiebreaker (rarer first within score band)
 
@@ -70,6 +72,7 @@ Dev server on localhost:5000.
 
 ## Scope rails
 - Do not introduce a database
+- Ephemeral in-memory caches are fine; do not add persistent storage
 - Do not add features outside the MVP scope listed above
 - Do not "improve" the minimalist UI with animations, shadows, or unrequested elements
 - The recursive scrolling loop (results rendered twice for seamless endless effect) is intentional — do not "fix" it
