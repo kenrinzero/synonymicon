@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Synonymicon</title>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+  background: #bab9b9;
+  color: #1a1a1a;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.container {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* ── Left half ── */
+.left {
+  width: 50%;
+  min-width: 50%;
+  background: #F2F0EF;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 1;
+}
+
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 28px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: #7a7775;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.corpus {
+  font-weight: 500;
+}
+
+.mode-toggle {
+  display: flex;
+  gap: 6px;
+  font-size: 11px;
+  letter-spacing: 0.03em;
+}
+
+.mode-toggle .active {
+  color: #1a1a1a;
+  font-weight: 500;
+}
+
+.mode-toggle .muted {
+  color: #8a8684;
+}
+
+.tier-area {
+  position: relative;
+}
+
+.tier-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+  padding-right: 12px;
+  text-align: right;
+}
+
+.tier-area::after {
+  content: '\25BE';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 9px;
+  color: #8a8684;
+  pointer-events: none;
+}
+
+.search-area {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.search-input {
+  width: 64%;
+  height: 50px;
+  border: none;
+  border-radius: 13px;
+  background: #5b5b5b;
+  color: #fff;
+  font-size: 16px;
+  padding: 0 20px;
+  outline: none;
+  font-family: inherit;
+}
+
+.search-input::placeholder {
+  color: #9a9897;
+}
+
+.search-input:focus {
+  background: #4e4e4e;
+}
+
+/* ── Right half ── */
+.right {
+  width: 50%;
+  min-width: 50%;
+  background: #9a9897;
+  overflow-y: auto;
+  position: relative;
+}
+
+.right::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 140px;
+  height: 100%;
+  background: linear-gradient(to right, #bab9b9, transparent);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.columns {
+  display: flex;
+  gap: 14px;
+  padding: 20px 18px 20px 28px;
+  min-height: 100%;
+  position: relative;
+  z-index: 1;
+}
+
+.column {
+  flex: 1;
+  background: #F2F0EF;
+  padding: 16px 14px;
+}
+
+.result-item {
+  margin-bottom: 19px;
+}
+
+.result-item:last-child {
+  margin-bottom: 0;
+}
+
+.result-word {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1a1a;
+  line-height: 1.2;
+}
+
+.result-zipf {
+  font-size: 11px;
+  color: #8a8684;
+  margin-left: 5px;
+  font-weight: 400;
+  vertical-align: super;
+}
+
+.result-def {
+  font-size: 13px;
+  color: #7a7775;
+  margin-top: 3px;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.result-def .undefined {
+  font-style: italic;
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="left">
+    <div class="top-bar">
+      <span class="corpus">CORPUS: WORDFREQ</span>
+      <div class="mode-toggle">
+        <span class="active">simple</span>
+        <span class="muted">/</span>
+        <span class="muted">advanced</span>
+      </div>
+      <div class="tier-area">
+        <select class="tier-select" id="tierSelect">
+          <option value="uncommon">UNCOMMON ~80k-1M</option>
+          <option value="rare" selected>RARE ~30k-80k</option>
+          <option value="exotic">EXOTIC ~10k-30k</option>
+          <option value="absurd">ABSURD &lt;10k</option>
+        </select>
+      </div>
+    </div>
+    <div class="search-area">
+      <input type="text" class="search-input" id="searchInput" placeholder="search for synonyms...">
+    </div>
+  </div>
+  <div class="right" id="rightPanel">
+    <div class="columns">
+      <div class="column" id="colA"></div>
+      <div class="column" id="colB"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const TIER_META = {
+  uncommon: { label: 'UNCOMMON', range: '~80k-1M' },
+  rare:     { label: 'RARE',     range: '~30k-80k' },
+  exotic:   { label: 'EXOTIC',   range: '~10k-30k' },
+  absurd:   { label: 'ABSURD',   range: '<10k' },
+};
+
+const searchInput = document.getElementById('searchInput');
+const tierSelect  = document.getElementById('tierSelect');
+const colA        = document.getElementById('colA');
+const colB        = document.getElementById('colB');
+
+let currentTier = 'rare';
+let currentMode = 'simple';
+let debounceTimer = null;
+let abortController = null;
+
+async function fetchSynonyms() {
+  const word = searchInput.value.trim();
+  if (!word) {
+    colA.innerHTML = '';
+    colB.innerHTML = '';
+    return;
+  }
+
+  if (abortController) abortController.abort();
+  abortController = new AbortController();
+
+  const params = new URLSearchParams({ word, tier: currentTier });
+  try {
+    const res = await fetch('/synonyms?' + params.toString(), {
+      signal: abortController.signal,
+    });
+    if (!res.ok) {
+      colA.innerHTML = '';
+      colB.innerHTML = '';
+      return;
+    }
+    const data = await res.json();
+    renderResults(data);
+  } catch (e) {
+    if (e.name !== 'AbortError') {
+      colA.innerHTML = '';
+      colB.innerHTML = '';
+    }
+  }
+}
+
+function renderResults(results) {
+  colA.innerHTML = '';
+  colB.innerHTML = '';
+  results.forEach((item, i) => {
+    const el = document.createElement('div');
+    el.className = 'result-item';
+
+    const wordSpan = document.createElement('span');
+    wordSpan.className = 'result-word';
+    wordSpan.textContent = item.word;
+
+    const zipfSpan = document.createElement('span');
+    zipfSpan.className = 'result-zipf';
+    zipfSpan.textContent = item.zipf.toFixed(1);
+
+    const defDiv = document.createElement('div');
+    defDiv.className = 'result-def';
+    if (item.definition === '[undefined]') {
+      const em = document.createElement('em');
+      em.className = 'undefined';
+      em.textContent = '[undefined]';
+      defDiv.appendChild(em);
+    } else {
+      defDiv.textContent = item.definition;
+    }
+
+    el.appendChild(wordSpan);
+    el.appendChild(zipfSpan);
+    el.appendChild(defDiv);
+
+    (i % 2 === 0 ? colA : colB).appendChild(el);
+  });
+}
+
+function updateTierLabel() {
+  const meta = TIER_META[currentTier];
+  tierSelect.options[tierSelect.selectedIndex].textContent =
+    meta.label + ' ' + meta.range;
+}
+
+searchInput.addEventListener('input', () => {
+  clearTimeout(debounceTimer);
+  if (!searchInput.value.trim()) {
+    colA.innerHTML = '';
+    colB.innerHTML = '';
+    return;
+  }
+  debounceTimer = setTimeout(fetchSynonyms, 250);
+});
+
+tierSelect.addEventListener('change', () => {
+  currentTier = tierSelect.value;
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(fetchSynonyms, 250);
+});
+
+updateTierLabel();
+</script>
+</body>
+</html>

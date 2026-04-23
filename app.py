@@ -134,6 +134,11 @@ def get_blended_results(word, tier=None, zmin=None, zmax=None):
     return [(w, z) for w, z, _ in results]
 
 
+@app.route('/')
+def index():
+    return app.send_static_file('index.html')
+
+
 @app.route('/synonyms')
 def synonyms():
     word = request.args.get('word')
