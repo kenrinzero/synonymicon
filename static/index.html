@@ -193,6 +193,44 @@ body {
 .result-def .undefined {
   font-style: italic;
 }
+
+/* ── States ── */
+.state-msg {
+  padding: 18px 14px;
+  font-size: 13px;
+  color: #8a8684;
+  line-height: 1.4;
+}
+
+.state-msg.error {
+  color: #a05050;
+}
+
+.loading-dot {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #8a8684;
+  animation: pulse 1.2s ease-in-out infinite;
+  z-index: 2;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 0.8; }
+}
+
+.reliability-note {
+  font-size: 10px;
+  color: #9a9897;
+  padding: 0 28px 0 28px;
+  margin-top: -8px;
+  letter-spacing: 0.02em;
+}
 </style>
 </head>
 <body>
@@ -213,6 +251,7 @@ body {
           <option value="absurd">ABSURD &lt;10k</option>
         </select>
       </div>
+      <div class="reliability-note">results thin out below Exotic</div>
     </div>
     <div class="search-area">
       <input type="text" class="search-input" id="searchInput" placeholder="search for synonyms...">
@@ -244,16 +283,41 @@ let currentMode = 'simple';
 let debounceTimer = null;
 let abortController = null;
 
+function showLoading() {
+  hideLoading();
+  const dot = document.createElement('div');
+  dot.className = 'loading-dot';
+  dot.id = 'loadingDot';
+  document.getElementById('rightPanel').appendChild(dot);
+}
+
+function hideLoading() {
+  const dot = document.getElementById('loadingDot');
+  if (dot) dot.remove();
+}
+
+function showStateMessage(text, isError) {
+  colA.innerHTML = '';
+  colB.innerHTML = '';
+  const msg = document.createElement('div');
+  msg.className = 'state-msg' + (isError ? ' error' : '');
+  msg.textContent = text;
+  colA.appendChild(msg);
+}
+
 async function fetchSynonyms() {
   const word = searchInput.value.trim();
   if (!word) {
     colA.innerHTML = '';
     colB.innerHTML = '';
+    hideLoading();
     return;
   }
 
   if (abortController) abortController.abort();
   abortController = new AbortController();
+
+  showLoading();
 
   const params = new URLSearchParams({ word, tier: currentTier });
   try {
@@ -261,16 +325,25 @@ async function fetchSynonyms() {
       signal: abortController.signal,
     });
     if (!res.ok) {
-      colA.innerHTML = '';
-      colB.innerHTML = '';
+      hideLoading();
+      showStateMessage('something went wrong — check the backend log', true);
       return;
     }
     const data = await res.json();
-    renderResults(data);
+    hideLoading();
+    if (data.length === 0) {
+      const nextTier = { uncommon: 'Rare', rare: 'Exotic', exotic: 'Absurd', absurd: null };
+      const hint = nextTier[currentTier]
+        ? ' — try ' + nextTier[currentTier]
+        : '';
+      showStateMessage('no synonyms found in this band' + hint);
+    } else {
+      renderResults(data);
+    }
   } catch (e) {
     if (e.name !== 'AbortError') {
-      colA.innerHTML = '';
-      colB.innerHTML = '';
+      hideLoading();
+      showStateMessage('something went wrong — check the backend log', true);
     }
   }
 }
@@ -320,6 +393,7 @@ searchInput.addEventListener('input', () => {
   if (!searchInput.value.trim()) {
     colA.innerHTML = '';
     colB.innerHTML = '';
+    hideLoading();
     return;
   }
   debounceTimer = setTimeout(fetchSynonyms, 250);
