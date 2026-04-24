@@ -16,7 +16,7 @@ TIERS = {
 }
 COMMON_FLOOR = 4.0
 WORDNET_SCORE = 1.5
-FASTTEXT_COSINE_CUTOFF = 0.6
+FASTTEXT_COSINE_CUTOFF = 0.65
 
 FASTTEXT_MODEL = api.load('fasttext-wiki-news-subwords-300')
 
