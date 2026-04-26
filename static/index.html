@@ -21,90 +21,42 @@ body {
   width: 100vw;
 }
 
-/* ── Left half ── */
+/* ── Left panel (38%) ── */
 .left {
-  width: 50%;
-  min-width: 50%;
+  width: 38%;
+  min-width: 38%;
   background: #F2F0EF;
   display: flex;
   flex-direction: column;
   position: relative;
   z-index: 1;
+  padding: 0 28px;
 }
 
-.top-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 28px;
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  color: #7a7775;
-  text-transform: uppercase;
+.wordmark {
+  font-family: 'Georgia', 'Times New Roman', 'Hoefler Text', 'Garamond', serif;
+  font-size: 22px;
+  font-weight: 400;
+  color: #1a1a1a;
+  letter-spacing: -0.01em;
+  padding-top: 28px;
+  margin-bottom: 0;
   user-select: none;
 }
 
-.corpus {
-  font-weight: 500;
-}
-
-.mode-toggle {
-  display: flex;
-  gap: 6px;
-  font-size: 11px;
-  letter-spacing: 0.03em;
-}
-
-.mode-toggle .active {
-  color: #1a1a1a;
-  font-weight: 500;
-}
-
-.mode-toggle .muted {
-  color: #8a8684;
-}
-
-.tier-area {
-  position: relative;
-}
-
-.tier-select {
-  appearance: none;
-  -webkit-appearance: none;
-  background: none;
-  border: none;
-  font: inherit;
-  color: inherit;
-  letter-spacing: inherit;
-  text-transform: inherit;
-  cursor: pointer;
-  padding-right: 12px;
-  text-align: right;
-}
-
-.tier-area::after {
-  content: '\25BE';
-  position: absolute;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 9px;
-  color: #8a8684;
-  pointer-events: none;
-}
-
+/* Search/control surface — upper-third anchoring */
 .search-area {
-  flex: 1;
+  margin-top: 30%;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .search-input {
-  width: 64%;
-  height: 50px;
+  width: 100%;
+  height: 52px;
   border: none;
-  border-radius: 13px;
+  border-radius: 14px;
   background: #5b5b5b;
   color: #fff;
   font-size: 16px;
@@ -121,13 +73,60 @@ body {
   background: #4e4e4e;
 }
 
-/* ── Right half ── */
-.right {
-  width: 50%;
-  min-width: 50%;
-  background: #9a9897;
-  overflow-y: auto;
+/* Controls row */
+.controls {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8a8684;
+  user-select: none;
+}
+
+.corpus-label {
+  font-weight: 500;
+  color: #7a7775;
+}
+
+.freq-selector {
   position: relative;
+}
+
+.freq-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+  padding-right: 14px;
+  text-align: left;
+}
+
+.freq-selector::after {
+  content: '\25BE';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 9px;
+  color: #8a8684;
+  pointer-events: none;
+}
+
+/* ── Right panel (62%) ── */
+.right {
+  width: 62%;
+  min-width: 62%;
+  background: #9a9897;
+  position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 .right::before {
@@ -142,52 +141,64 @@ body {
   z-index: 0;
 }
 
-.columns {
+.results-area {
+  flex: 1;
+  height: 0;
+  min-height: 0;
   display: flex;
+  flex-direction: row;
   gap: 14px;
-  padding: 20px 18px 20px 28px;
-  min-height: 100%;
+  padding: 24px 28px 12px;
   position: relative;
   z-index: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  align-items: stretch;
 }
 
-.column {
-  flex: 1;
+.col {
+  flex: 0 0 340px;
   background: #F2F0EF;
-  padding: 16px 14px;
+  border-radius: 12px;
+  padding: 18px 16px;
+  overflow-y: hidden;
+  flex-shrink: 0;
 }
 
+/* Result items */
 .result-item {
-  margin-bottom: 19px;
+  margin-bottom: 16px;
+  padding-bottom: 4px;
+  min-width: 0;
 }
 
-.result-item:last-child {
-  margin-bottom: 0;
+.result-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
 }
 
 .result-word {
-  font-size: 18px;
+  font-size: 28px;
   font-weight: 600;
   color: #1a1a1a;
   line-height: 1.2;
+  letter-spacing: -0.01em;
 }
 
 .result-zipf {
   font-size: 11px;
-  color: #8a8684;
-  margin-left: 5px;
+  color: #a8a4a2;
   font-weight: 400;
-  vertical-align: super;
 }
 
 .result-def {
   font-size: 13px;
   color: #7a7775;
   margin-top: 3px;
-  line-height: 1.35;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.4;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .result-def .undefined {
@@ -198,7 +209,7 @@ body {
 .state-msg {
   padding: 18px 14px;
   font-size: 13px;
-  color: #8a8684;
+  color: #a8a4a2;
   line-height: 1.4;
 }
 
@@ -214,7 +225,7 @@ body {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #8a8684;
+  background: #a8a4a2;
   animation: pulse 1.2s ease-in-out infinite;
   z-index: 2;
 }
@@ -224,64 +235,128 @@ body {
   50% { opacity: 0.8; }
 }
 
-.reliability-note {
+/* ── Column navigation ── */
+.col-nav {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 6px 28px 0;
+  position: relative;
+  z-index: 1;
+}
+
+.col-nav.visible {
+  display: flex;
+}
+
+.col-nav-dots {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.col-nav-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #8a8684;
+  opacity: 0.25;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.col-nav-dot.active {
+  opacity: 0.7;
+}
+
+.col-nav-arrow {
+  font-size: 13px;
+  color: #8a8684;
+  opacity: 0.4;
+  cursor: pointer;
+  user-select: none;
+  transition: opacity 0.15s;
+}
+
+.col-nav-arrow:hover {
+  opacity: 0.7;
+}
+
+/* ── Band separator ── */
+.band-sep {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.band-sep::before {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #dedad8;
+}
+
+.band-sep-label {
   font-size: 10px;
-  color: #9a9897;
-  padding: 0 28px 0 28px;
-  margin-top: -8px;
-  letter-spacing: 0.02em;
+  color: #b0adaa;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Bottom strip ── */
+.bottom-strip {
+  height: 36px;
+  margin: 12px 28px 18px;
+  border-radius: 8px;
+  background: #c4c0be;
+  flex-shrink: 0;
 }
 </style>
 </head>
 <body>
 <div class="container">
   <div class="left">
-    <div class="top-bar">
-      <span class="corpus">CORPUS: WORDFREQ</span>
-      <div class="mode-toggle">
-        <span class="active">simple</span>
-        <span class="muted">/</span>
-        <span class="muted">advanced</span>
-      </div>
-      <div class="tier-area">
-        <select class="tier-select" id="tierSelect">
-          <option value="uncommon">UNCOMMON ~80k-1M</option>
-          <option value="rare" selected>RARE ~30k-80k</option>
-          <option value="exotic">EXOTIC ~10k-30k</option>
-          <option value="absurd">ABSURD &lt;10k</option>
-        </select>
-      </div>
-      <div class="reliability-note">results thin out below Exotic</div>
-    </div>
+    <div class="wordmark">Synonymicon</div>
     <div class="search-area">
       <input type="text" class="search-input" id="searchInput" placeholder="search for synonyms...">
+      <div class="controls">
+        <span class="corpus-label">corpus: wordfreq</span>
+        <div class="freq-selector">
+          <select class="freq-select" id="freqSelect">
+            <option value="all">all</option>
+            <option value="uncommon">10k-30k</option>
+            <option value="rare">30k-80k</option>
+            <option value="exotic">80k-150k</option>
+            <option value="absurd">150k+</option>
+          </select>
+        </div>
+      </div>
     </div>
   </div>
   <div class="right" id="rightPanel">
-    <div class="columns">
-      <div class="column" id="colA"></div>
-      <div class="column" id="colB"></div>
+    <div class="results-area" id="resultsArea"></div>
+    <div class="col-nav" id="colNav">
+      <div class="col-nav-dots" id="colNavDots"></div>
+      <div class="col-nav-arrow" id="colNavArrow">&rarr;</div>
     </div>
+    <div class="bottom-strip"></div>
   </div>
 </div>
 
 <script>
-const TIER_META = {
-  uncommon: { label: 'UNCOMMON', range: '~80k-1M' },
-  rare:     { label: 'RARE',     range: '~30k-80k' },
-  exotic:   { label: 'EXOTIC',   range: '~10k-30k' },
-  absurd:   { label: 'ABSURD',   range: '<10k' },
-};
-
-const searchInput = document.getElementById('searchInput');
-const tierSelect  = document.getElementById('tierSelect');
-const colA        = document.getElementById('colA');
-const colB        = document.getElementById('colB');
-
-let currentTier = 'rare';
-let currentMode = 'simple';
+let currentTier = 'all';
 let debounceTimer = null;
 let abortController = null;
+
+const searchInput = document.getElementById('searchInput');
+const freqSelect  = document.getElementById('freqSelect');
+const resultsArea = document.getElementById('resultsArea');
+const colNav      = document.getElementById('colNav');
+const colNavDots  = document.getElementById('colNavDots');
+const colNavArrow = document.getElementById('colNavArrow');
 
 function showLoading() {
   hideLoading();
@@ -296,20 +371,176 @@ function hideLoading() {
   if (dot) dot.remove();
 }
 
-function showStateMessage(text, isError) {
-  colA.innerHTML = '';
-  colB.innerHTML = '';
+function showMessage(text, isError) {
+  resultsArea.innerHTML = '';
+  colNav.classList.remove('visible');
   const msg = document.createElement('div');
   msg.className = 'state-msg' + (isError ? ' error' : '');
   msg.textContent = text;
-  colA.appendChild(msg);
+  resultsArea.appendChild(msg);
 }
+
+function renderResult(item) {
+  const el = document.createElement('div');
+  el.className = 'result-item';
+
+  const head = document.createElement('div');
+  head.className = 'result-head';
+
+  const word = document.createElement('span');
+  word.className = 'result-word';
+  word.textContent = item.word;
+
+  const zipf = document.createElement('span');
+  zipf.className = 'result-zipf';
+  zipf.textContent = item.zipf.toFixed(1);
+
+  head.appendChild(word);
+  head.appendChild(zipf);
+
+  const def = document.createElement('div');
+  def.className = 'result-def';
+  if (item.definition === '[undefined]') {
+    const em = document.createElement('em');
+    em.className = 'undefined';
+    em.textContent = '[undefined]';
+    def.appendChild(em);
+  } else {
+    def.textContent = item.definition;
+  }
+
+  el.appendChild(head);
+  el.appendChild(def);
+  return el;
+}
+
+const BAND_DISPLAY = {
+  'uncommon': '~10k–30k',
+  'rare': '~30k–80k',
+  'very rare': '~80k–150k',
+  'absurd': '~150k+',
+};
+
+function renderResults(items) {
+  resultsArea.innerHTML = '';
+
+  // Column height = results area height - column nav - padding
+  const areaRect = resultsArea.getBoundingClientRect();
+  const colNavHeight = 30; // approximate height of column nav
+  const colMaxHeight = areaRect.height - colNavHeight - 12; // 12px bottom padding
+  const itemsPerCol = Math.max(3, Math.floor(colMaxHeight / 95)); // 95px per item — conservative to prevent overflow
+
+  let col = createCol(colMaxHeight);
+  resultsArea.appendChild(col);
+  let count = 0;
+
+  items.forEach((item, i) => {
+    // Band separator when band changes (only in "all" mode)
+    if (currentTier === 'all' && i > 0 && item.band !== items[i - 1].band) {
+      if (count >= itemsPerCol) {
+        col = createCol(colMaxHeight);
+        resultsArea.appendChild(col);
+        count = 0;
+      }
+      col.appendChild(createBandSep(BAND_DISPLAY[item.band] || item.band));
+      count++;
+    }
+
+    // New column when full
+    if (count >= itemsPerCol) {
+      col = createCol(colMaxHeight);
+      resultsArea.appendChild(col);
+      count = 0;
+    }
+
+    col.appendChild(renderResult(item));
+    count++;
+  });
+
+  buildColNav();
+}
+
+function createCol(maxHeight) {
+  const col = document.createElement('div');
+  col.className = 'col';
+  col.style.maxHeight = maxHeight + 'px';
+  return col;
+}
+
+function createBandSep(bandLabel) {
+  const sep = document.createElement('div');
+  sep.className = 'band-sep';
+  const label = document.createElement('span');
+  label.className = 'band-sep-label';
+  label.textContent = bandLabel || '';
+  sep.appendChild(label);
+  return sep;
+}
+
+function buildColNav() {
+  const cols = resultsArea.querySelectorAll('.col');
+  colNavDots.innerHTML = '';
+  colNav.classList.remove('visible');
+
+  if (cols.length <= 1) return;
+
+  colNav.classList.add('visible');
+
+  cols.forEach((col, i) => {
+    const dot = document.createElement('div');
+    dot.className = 'col-nav-dot' + (i === 0 ? ' active' : '');
+    dot.addEventListener('click', () => {
+      col.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
+      setActiveDot(i);
+    });
+    colNavDots.appendChild(dot);
+  });
+
+  updateArrow();
+}
+
+function setActiveDot(index) {
+  const dots = colNavDots.querySelectorAll('.col-nav-dot');
+  dots.forEach((d, i) => d.classList.toggle('active', i === index));
+}
+
+function updateArrow() {
+  const cols = resultsArea.querySelectorAll('.col');
+  if (cols.length === 0) return;
+  const lastCol = cols[cols.length - 1];
+  const rect = lastCol.getBoundingClientRect();
+  const areaRect = resultsArea.getBoundingClientRect();
+  colNavArrow.style.display = rect.right > areaRect.right ? 'block' : 'none';
+}
+
+// Track scroll position to update active dot
+resultsArea.addEventListener('scroll', () => {
+  const cols = resultsArea.querySelectorAll('.col');
+  const areaLeft = resultsArea.scrollLeft;
+  let active = 0;
+  cols.forEach((col, i) => {
+    if (col.offsetLeft <= areaLeft + 50) active = i;
+  });
+  setActiveDot(active);
+  updateArrow();
+});
+
+colNavArrow.addEventListener('click', () => {
+  const cols = resultsArea.querySelectorAll('.col');
+  const areaLeft = resultsArea.scrollLeft;
+  for (const col of cols) {
+    if (col.offsetLeft > areaLeft + 10) {
+      col.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
+      break;
+    }
+  }
+});
 
 async function fetchSynonyms() {
   const word = searchInput.value.trim();
   if (!word) {
-    colA.innerHTML = '';
-    colB.innerHTML = '';
+    resultsArea.innerHTML = '';
+    colNav.classList.remove('visible');
     hideLoading();
     return;
   }
@@ -326,86 +557,40 @@ async function fetchSynonyms() {
     });
     if (!res.ok) {
       hideLoading();
-      showStateMessage('something went wrong — check the backend log', true);
+      showMessage('something went wrong — check the backend log', true);
       return;
     }
     const data = await res.json();
     hideLoading();
     if (data.length === 0) {
-      const nextTier = { uncommon: 'Rare', rare: 'Exotic', exotic: 'Absurd', absurd: null };
-      const hint = nextTier[currentTier]
-        ? ' — try ' + nextTier[currentTier]
-        : '';
-      showStateMessage('no synonyms found in this band' + hint);
+      showMessage('no synonyms found — try broadening the frequency range');
     } else {
       renderResults(data);
     }
   } catch (e) {
     if (e.name !== 'AbortError') {
       hideLoading();
-      showStateMessage('something went wrong — check the backend log', true);
+      showMessage('something went wrong — check the backend log', true);
     }
   }
-}
-
-function renderResults(results) {
-  colA.innerHTML = '';
-  colB.innerHTML = '';
-  results.forEach((item, i) => {
-    const el = document.createElement('div');
-    el.className = 'result-item';
-
-    const wordSpan = document.createElement('span');
-    wordSpan.className = 'result-word';
-    wordSpan.textContent = item.word;
-
-    const zipfSpan = document.createElement('span');
-    zipfSpan.className = 'result-zipf';
-    zipfSpan.textContent = item.zipf.toFixed(1);
-
-    const defDiv = document.createElement('div');
-    defDiv.className = 'result-def';
-    if (item.definition === '[undefined]') {
-      const em = document.createElement('em');
-      em.className = 'undefined';
-      em.textContent = '[undefined]';
-      defDiv.appendChild(em);
-    } else {
-      defDiv.textContent = item.definition;
-    }
-
-    el.appendChild(wordSpan);
-    el.appendChild(zipfSpan);
-    el.appendChild(defDiv);
-
-    (i % 2 === 0 ? colA : colB).appendChild(el);
-  });
-}
-
-function updateTierLabel() {
-  const meta = TIER_META[currentTier];
-  tierSelect.options[tierSelect.selectedIndex].textContent =
-    meta.label + ' ' + meta.range;
 }
 
 searchInput.addEventListener('input', () => {
   clearTimeout(debounceTimer);
   if (!searchInput.value.trim()) {
-    colA.innerHTML = '';
-    colB.innerHTML = '';
+    resultsArea.innerHTML = '';
+    colNav.classList.remove('visible');
     hideLoading();
     return;
   }
   debounceTimer = setTimeout(fetchSynonyms, 250);
 });
 
-tierSelect.addEventListener('change', () => {
-  currentTier = tierSelect.value;
+freqSelect.addEventListener('change', () => {
+  currentTier = freqSelect.value;
   clearTimeout(debounceTimer);
   debounceTimer = setTimeout(fetchSynonyms, 250);
 });
-
-updateTierLabel();
 </script>
 </body>
 </html>

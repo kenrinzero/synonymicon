@@ -9,6 +9,7 @@ from wordfreq import zipf_frequency
 app = Flask(__name__)
 
 TIERS = {
+    'all':      (float('-inf'), 4.0),
     'uncommon': (3.0, 4.0),
     'rare':     (2.0, 3.0),
     'exotic':   (1.0, 2.0),
@@ -99,6 +100,20 @@ def get_definition(word):
     return "[undefined]"
 
 
+def get_band_label(zipf):
+    """Map a Zipf frequency score to a band label."""
+    if zipf >= 3.0:
+        return 'common'
+    elif zipf >= 2.0:
+        return 'uncommon'
+    elif zipf >= 1.0:
+        return 'rare'
+    elif zipf >= 0.0:
+        return 'very rare'
+    else:
+        return 'absurd'
+
+
 def get_blended_results(word, tier=None, zmin=None, zmax=None):
     """Merge WordNet + fastText candidates with blended scoring."""
     # Gather candidates from both sources
@@ -176,7 +191,7 @@ def synonyms():
         results = get_blended_results(word, tier=tier)
 
     return jsonify([
-        {'word': w, 'zipf': z, 'definition': get_definition(w)}
+        {'word': w, 'zipf': z, 'definition': get_definition(w), 'band': get_band_label(z)}
         for w, z in results
     ])
 
