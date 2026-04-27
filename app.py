@@ -102,14 +102,14 @@ def get_definition(word):
 
 def get_band_label(zipf):
     """Map a Zipf frequency score to a band label."""
-    if zipf >= 3.0:
+    if zipf >= COMMON_FLOOR:
         return 'common'
-    elif zipf >= 2.0:
+    elif zipf >= 3.0:
         return 'uncommon'
-    elif zipf >= 1.0:
+    elif zipf >= 2.0:
         return 'rare'
-    elif zipf >= 0.0:
-        return 'very rare'
+    elif zipf >= 1.0:
+        return 'exotic'
     else:
         return 'absurd'
 
@@ -144,8 +144,8 @@ def get_blended_results(word, tier=None, zmin=None, zmax=None):
         if z < COMMON_FLOOR and lo <= z < hi:
             results.append((display, z, score))
 
-    # Sort: score descending, Zipf ascending as tiebreaker
-    results.sort(key=lambda x: (-x[2], x[1]))
+    # Sort: Zipf descending (rarer first), score descending as tiebreaker
+    results.sort(key=lambda x: (-x[1], -x[2]))
     return [(w, z) for w, z, _ in results]
 
 

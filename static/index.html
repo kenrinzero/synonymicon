@@ -24,6 +24,11 @@
                            0 2px 8px -2px rgba(50, 40, 25, 0.05);
       --shadow-subtle:     0 1px 4px rgba(50, 40, 25, 0.04);
 
+      /* Derived */
+      --watermark:         rgba(42, 36, 28, 0.07);
+      --footer-bg:         rgba(235, 227, 212, 0.5);
+      --error:             #a05050;
+
       /* Typography */
       --font-serif: "Cormorant Garamond", Georgia, "Times New Roman", serif;
 
@@ -37,6 +42,60 @@
 
       /* Animation */
       --page-transition: 220ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* ── Theme: penumbra (dark) ── */
+    body[data-theme="penumbra"] {
+      --background:        #1a1a1e;
+      --surface:           #222226;
+      --column:            #2a2a2e;
+      --foreground:        #e0ddd6;
+      --foreground-muted:  rgba(224, 221, 214, 0.60);
+      --foreground-faint:  rgba(224, 221, 214, 0.35);
+      --border:            rgba(224, 221, 214, 0.10);
+      --border-strong:     rgba(224, 221, 214, 0.18);
+      --shadow-soft:       0 8px 32px -8px rgba(0, 0, 0, 0.30),
+                           0 2px 8px -2px rgba(0, 0, 0, 0.15);
+      --shadow-subtle:     0 1px 4px rgba(0, 0, 0, 0.10);
+      --watermark:         rgba(224, 221, 214, 0.06);
+      --footer-bg:         rgba(34, 34, 38, 0.5);
+      --error:             #c07070;
+    }
+
+    /* ── Theme: umbra (OLED) ── */
+    body[data-theme="umbra"] {
+      --background:        #000000;
+      --surface:           #0c0c0e;
+      --column:            #161618;
+      --foreground:        #ece9e2;
+      --foreground-muted:  rgba(236, 233, 226, 0.65);
+      --foreground-faint:  rgba(236, 233, 226, 0.40);
+      --border:            rgba(216, 213, 206, 0.08);
+      --border-strong:     rgba(216, 213, 206, 0.14);
+      --shadow-soft:       0 8px 32px -8px rgba(0, 0, 0, 0.50),
+                           0 2px 8px -2px rgba(0, 0, 0, 0.25);
+      --shadow-subtle:     0 1px 4px rgba(0, 0, 0, 0.20);
+      --watermark:         rgba(216, 213, 206, 0.04);
+      --footer-bg:         rgba(12, 12, 14, 0.5);
+      --error:             #c07070;
+    }
+
+    /* ── Theme: synonymicon (vintage) ── */
+    body[data-theme="synonymicon"] {
+      --background:        #e8dcc8;
+      --surface:           #d9cbae;
+      --column:            #eee4d0;
+      --foreground:        #3a3024;
+      --foreground-muted:  rgba(58, 48, 36, 0.65);
+      --foreground-faint:  rgba(58, 48, 36, 0.40);
+      --border:            rgba(58, 48, 36, 0.12);
+      --border-strong:     rgba(58, 48, 36, 0.22);
+      --shadow-soft:       0 8px 32px -8px rgba(60, 45, 20, 0.12),
+                           0 2px 8px -2px rgba(60, 45, 20, 0.06);
+      --shadow-subtle:     0 1px 4px rgba(60, 45, 20, 0.05);
+      --watermark:         rgba(58, 48, 36, 0.06);
+      --footer-bg:         rgba(217, 203, 174, 0.5);
+      --error:             #8c4545;
     }
 
     * {
@@ -76,7 +135,7 @@
       left: 2.5rem;
       z-index: 20;
       font-family: var(--font-serif);
-      font-size: 1.5rem;
+      font-size: 1.75rem;
       font-weight: 500;
       letter-spacing: -0.01em;
       color: var(--foreground);
@@ -111,7 +170,7 @@
       font-style: italic;
       font-size: 18rem;
       line-height: 1;
-      color: rgba(42, 36, 28, 0.07);
+      color: var(--watermark);
       pointer-events: none;
       user-select: none;
       z-index: 0;
@@ -229,6 +288,52 @@
       width: 1rem;
       height: 1rem;
       color: var(--foreground-muted);
+    }
+
+    .dropdown-menu {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      margin-top: 0.25rem;
+      background: var(--column);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-inner);
+      box-shadow: var(--shadow-soft);
+      z-index: 30;
+      overflow: hidden;
+      display: none;
+    }
+
+    .dropdown-menu.open {
+      display: block;
+    }
+
+    .dropdown-item {
+      display: block;
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      font-family: var(--font-serif);
+      font-size: 0.9375rem;
+      color: var(--foreground);
+      text-align: left;
+      transition: background var(--page-transition);
+    }
+
+    .dropdown-item:hover {
+      background: var(--surface);
+    }
+
+    .dropdown-item.active {
+      font-weight: 500;
+    }
+
+    .control-wrapper {
+      position: relative;
+      flex: 1;
     }
 
     .control-divider {
@@ -361,7 +466,7 @@
       font-weight: 500;
       line-height: 1.05;
       letter-spacing: -0.01em;
-      color: rgba(42, 36, 28, 0.85);
+      color: var(--foreground-muted);
       transition: color var(--page-transition);
     }
 
@@ -388,7 +493,7 @@
     }
 
     .entry:hover .entry-def {
-      color: rgba(42, 36, 28, 0.78);
+      color: var(--foreground);
     }
 
     .entry-def.undefined {
@@ -408,27 +513,24 @@
     }
 
     .page-dot {
-      background: rgba(42, 36, 28, 0.25);
+      background: var(--foreground-faint);
       border: none;
       cursor: pointer;
       padding: 0;
       border-radius: 9999px;
-      transition: width var(--page-transition), height var(--page-transition), background var(--page-transition);
-    }
-
-    .page-dot {
       width: 0.375rem;
       height: 0.375rem;
+      transition: width var(--page-transition), height var(--page-transition), background var(--page-transition);
     }
 
     .page-dot.active {
       width: 1.25rem;
       height: 0.375rem;
-      background: rgba(42, 36, 28, 0.7);
+      background: var(--foreground-muted);
     }
 
     .page-dot:not(.active):hover {
-      background: rgba(42, 36, 28, 0.4);
+      background: var(--foreground-muted);
     }
 
     /* ────────────────────────────────────────────────────────── */
@@ -449,7 +551,63 @@
     }
 
     .state-message.error {
-      color: #a05050;
+      color: var(--error, #a05050);
+    }
+
+    /* ────────────────────────────────────────────────────────── */
+    /* Loading dot                                                */
+    /* ────────────────────────────────────────────────────────── */
+
+    .loading-dot {
+      position: absolute;
+      bottom: 3.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--foreground-muted);
+      animation: pulse 1.2s ease-in-out infinite;
+      z-index: 5;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.3; transform: translateX(-50%) scale(1); }
+      50%      { opacity: 1;   transform: translateX(-50%) scale(1.3); }
+    }
+
+    /* ────────────────────────────────────────────────────────── */
+    /* Band separator                                             */
+    /* ────────────────────────────────────────────────────────── */
+
+    .band-separator {
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+      padding-top: 0.25rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .band-separator::before {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--border-strong);
+    }
+
+    .band-separator-label {
+      font-size: 0.7rem;
+      font-variant: small-caps;
+      letter-spacing: 0.06em;
+      color: var(--foreground-faint);
+      white-space: nowrap;
+    }
+
+    .band-separator::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--border-strong);
     }
 
     /* ────────────────────────────────────────────────────────── */
@@ -461,10 +619,10 @@
       height: 4rem;
       padding: 0 var(--gap-outer);
       border-top: 1px solid var(--border);
-      background: rgba(235, 227, 212, 0.5);
+      background: var(--footer-bg);
       display: flex;
       align-items: center;
-      justify-content: flex-end;
+      justify-content: space-between;
       gap: 1.5rem;
     }
 
@@ -474,7 +632,7 @@
       cursor: pointer;
       font-family: var(--font-serif);
       font-size: 0.9375rem;
-      color: rgba(42, 36, 28, 0.75);
+      color: var(--foreground-muted);
       transition: color var(--page-transition);
     }
 
@@ -502,7 +660,7 @@
               id="search-input"
               class="search-input"
               type="text"
-              placeholder="discover rare synonyms"
+              placeholder="discover"
               autocomplete="off"
               spellcheck="false"
             />
@@ -515,19 +673,24 @@
           </div>
 
           <div class="controls-row">
-            <button class="control-button" type="button">
-              <span><span class="label">corpus: </span><span class="value">wordfreq</span></span>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="m6 9 6 6 6-6"/>
-              </svg>
-            </button>
+            <div class="control-wrapper">
+              <button class="control-button" type="button">
+                <span><span class="label">corpus: </span><span class="value">wordfreq</span></span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m6 9 6 6 6-6"/>
+                </svg>
+              </button>
+            </div>
             <div class="control-divider"></div>
-            <button class="control-button" type="button">
-              <span><span class="label">frequency: </span><span class="value">all</span></span>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="m6 9 6 6 6-6"/>
-              </svg>
-            </button>
+            <div class="control-wrapper">
+              <button id="freq-button" class="control-button" type="button">
+                <span><span class="label">frequency: </span><span id="freq-value" class="value">all</span></span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m6 9 6 6 6-6"/>
+                </svg>
+              </button>
+              <div id="freq-menu" class="dropdown-menu"></div>
+            </div>
           </div>
         </section>
       </div>
@@ -553,58 +716,43 @@
     </main>
 
     <footer>
-      <button class="footer-link" type="button">About</button>
+      <button id="theme-button" class="footer-link" type="button">lumen</button>
+      <button class="footer-link" type="button">about</button>
     </footer>
   </div>
 
   <script>
     // ────────────────────────────────────────────────────────────
-    // Placeholder data. Replace with real /synonyms response.
-    // Expected shape: { word, definition, zipf, band }
+    // Constants
     // ────────────────────────────────────────────────────────────
-    const PLACEHOLDER_RESULTS = [
-      { word: "recondite",     definition: "little known; abstruse; difficult to penetrate.", zipf: 2.1, band: "rare" },
-      { word: "abstruse",      definition: "difficult to understand; deeply subtle.",         zipf: 2.4, band: "rare" },
-      { word: "esoteric",      definition: "intended for or understood by the initiated; arcane.", zipf: 3.0, band: "uncommon" },
-      { word: "obscure",       definition: "not discovered or known about; unclear.",         zipf: 3.6, band: "uncommon" },
-      { word: "arcane",        definition: "understood by few; mysterious; secret.",          zipf: 2.9, band: "uncommon" },
-      { word: "abditive",      definition: "tending to hide or withdraw; secretive.",         zipf: 0.5, band: "absurd" },
-      { word: "occulted",      definition: "hidden; concealed from view or knowledge.",       zipf: 1.8, band: "very rare" },
-      { word: "implicative",   definition: "suggesting something indirectly; implied.",       zipf: 1.5, band: "very rare" },
-      { word: "inscitable",    definition: "incapable of being roused or provoked.",          zipf: 0.3, band: "absurd" },
-      { word: "rebarbative",   definition: "tending to repel; offensive; disagreeable.",      zipf: 1.1, band: "very rare" },
-      { word: "caliginous",    definition: "covered with mist; obscure; dark.",                zipf: 0.7, band: "absurd" },
-      { word: "doleful",       definition: "causing grief or lamentation.",                    zipf: 2.0, band: "rare" },
-      { word: "querulous",     definition: "occurring rarely; complaining peevishly.",         zipf: 1.9, band: "very rare" },
-      { word: "ineluctable",   definition: "too certain to be avoided; inescapable.",          zipf: 1.4, band: "very rare" },
-      { word: "tenebrous",     definition: "dark; obscure; gloomy.",                           zipf: 1.2, band: "very rare" },
-      { word: "lugubrious",    definition: "looking or sounding sad and dismal.",              zipf: 1.6, band: "very rare" },
-      { word: "perspicacious", definition: "having keen mental perception and understanding.", zipf: 2.0, band: "rare" },
-      { word: "pellucid",      definition: "translucently clear; easily understood.",          zipf: 1.7, band: "very rare" },
-      { word: "recherché",     definition: "rare; exotic; carefully chosen.",                  zipf: 1.3, band: "very rare" },
-      { word: "sesquipedalian",definition: "characterized by long words; long-winded.",        zipf: 0.9, band: "absurd" },
-      { word: "desuetude",     definition: "a state of disuse or inactivity.",                 zipf: 0.8, band: "absurd" },
-      { word: "crepuscular",   definition: "of or resembling twilight; dim.",                  zipf: 1.5, band: "very rare" },
-      { word: "stygian",       definition: "extremely dark, gloomy, or forbidding.",           zipf: 1.4, band: "very rare" },
-      { word: "byzantine",     definition: "excessively complicated; intricate.",              zipf: 3.0, band: "uncommon" },
-      { word: "inscrutable",   definition: "impossible to understand or interpret.",           zipf: 2.5, band: "rare" },
-      { word: "hermetic",      definition: "completely sealed; airtight; impervious.",         zipf: 2.1, band: "rare" },
-      { word: "chthonic",      definition: "concerning the deities or spirits of the underworld.", zipf: 0.6, band: "absurd" },
-      { word: "saturnine",     definition: "slow and gloomy; cold and steady in mood.",        zipf: 1.5, band: "very rare" },
-      { word: "fuliginous",    definition: "sooty; dusky; resembling smoke.",                  zipf: 0.4, band: "absurd" },
-      { word: "gnomic",        definition: "expressed in or of the nature of short pithy maxims.", zipf: 1.1, band: "very rare" }
+    const COLUMNS_PER_PAGE = 3;
+    const ITEM_HEIGHT_PX = 130;
+    const COLUMN_PADDING_PX = 80;
+    const INDICATOR_RESERVE_PX = 50;
+
+    const FREQUENCY_TIERS = [
+      { label: "all",      value: "all" },
+      { label: "10k–30k",  value: "uncommon" },
+      { label: "30k–80k",  value: "rare" },
+      { label: "80k–150k", value: "exotic" },
+      { label: "150k+",         value: "absurd" },
     ];
+
+    const BAND_DISPLAY = {
+      uncommon: "~10k–30k",
+      rare:     "~30k–80k",
+      exotic:   "~80k–150k",
+      absurd:   "~150k+",
+    };
 
     // ────────────────────────────────────────────────────────────
     // State
     // ────────────────────────────────────────────────────────────
-    const COLUMNS_PER_PAGE = 3;
-    const ITEM_HEIGHT_PX = 130;       // headword + 2-line def + gap, with corner margin
-    const COLUMN_PADDING_PX = 80;     // top + bottom padding inside .column-inner
-    const INDICATOR_RESERVE_PX = 50;  // approx height of page indicator + its top padding
-
-    let results = PLACEHOLDER_RESULTS.slice();
+    let results = [];
     let currentPage = 0;
+    let currentTier = "all";
+    let lastSearchedWord = "";
+    let isLoading = false;
 
     // ────────────────────────────────────────────────────────────
     // DOM refs
@@ -615,15 +763,18 @@
     const nextBtn = document.getElementById("nav-next");
     const searchInput = document.getElementById("search-input");
     const searchSubmit = document.getElementById("search-submit");
+    const wordSurface = document.querySelector(".word-surface");
+    const freqButton = document.getElementById("freq-button");
+    const freqValue = document.getElementById("freq-value");
+    const freqMenu = document.getElementById("freq-menu");
 
     // ────────────────────────────────────────────────────────────
     // Layout math
     // ────────────────────────────────────────────────────────────
     function calculateItemsPerColumn() {
-      const surface = document.querySelector(".word-surface");
-      if (!surface) return 5;
-      const surfaceHeight = surface.clientHeight;
-      const surfacePadding = 48; // 1.5rem top + 1.5rem bottom
+      if (!wordSurface) return 5;
+      const surfaceHeight = wordSurface.clientHeight;
+      const surfacePadding = 48;
       const available = surfaceHeight - surfacePadding - INDICATOR_RESERVE_PX - COLUMN_PADDING_PX;
       const items = Math.floor(available / ITEM_HEIGHT_PX);
       return Math.max(3, items);
@@ -646,7 +797,7 @@
     }
 
     // ────────────────────────────────────────────────────────────
-    // Render
+    // Render — entries
     // ────────────────────────────────────────────────────────────
     function renderEntry(entry) {
       const div = document.createElement("div");
@@ -677,17 +828,55 @@
       return div;
     }
 
-    function renderColumn(entries) {
+    function renderBandSeparator(band) {
+      const sep = document.createElement("div");
+      sep.className = "band-separator";
+      const label = document.createElement("span");
+      label.className = "band-separator-label";
+      label.textContent = BAND_DISPLAY[band] || band;
+      sep.appendChild(label);
+      return sep;
+    }
+
+    // ────────────────────────────────────────────────────────────
+    // Render — columns with cross-column band tracking
+    // ────────────────────────────────────────────────────────────
+    function renderColumn(entries, prevBand) {
       const cell = document.createElement("div");
       cell.className = "column-cell";
 
       const inner = document.createElement("div");
       inner.className = "column-inner";
 
-      entries.forEach(e => inner.appendChild(renderEntry(e)));
+      let lastBand = prevBand;
+      entries.forEach(e => {
+        if (currentTier === "all" && e.band !== lastBand) {
+          inner.appendChild(renderBandSeparator(e.band));
+          lastBand = e.band;
+        }
+        inner.appendChild(renderEntry(e));
+      });
 
+      cell._lastBand = lastBand;
       cell.appendChild(inner);
       return cell;
+    }
+
+    // ────────────────────────────────────────────────────────────
+    // Render — states
+    // ────────────────────────────────────────────────────────────
+    function setLoading(on) {
+      isLoading = on;
+      let dot = wordSurface.querySelector(".loading-dot");
+      if (on) {
+        if (!dot) {
+          dot = document.createElement("div");
+          dot.className = "loading-dot";
+          wordSurface.appendChild(dot);
+        }
+      } else {
+        if (dot) dot.remove();
+      }
     }
 
     function renderEmptyState(message) {
@@ -697,12 +886,21 @@
       return div;
     }
 
+    function renderErrorState(message) {
+      const div = document.createElement("div");
+      div.className = "state-message error";
+      div.textContent = message;
+      return div;
+    }
+
+    // ────────────────────────────────────────────────────────────
+    // Render — main
+    // ────────────────────────────────────────────────────────────
     function render() {
       const itemsPerCol = calculateItemsPerColumn();
       const allColumns = chunkIntoColumns(results, itemsPerCol);
       const pages = chunkIntoPages(allColumns, COLUMNS_PER_PAGE);
 
-      // Clamp current page
       if (currentPage >= pages.length) currentPage = pages.length - 1;
       if (currentPage < 0) currentPage = 0;
 
@@ -710,26 +908,42 @@
       const isLastPage = currentPage === pages.length - 1;
       const showPeek = !isLastPage && pages.length > 1;
 
-      // Force reflow + restart animation by removing/re-adding the class
       grid.innerHTML = "";
       grid.classList.remove("with-peek", "no-peek");
-      // Trigger reflow so animation restarts
       void grid.offsetWidth;
       grid.classList.add(showPeek ? "with-peek" : "no-peek");
 
-      if (pageColumns.length === 0) {
-        grid.appendChild(renderEmptyState("no results"));
+      if (isLoading) {
+        // Loading dot is managed separately; grid stays empty
+      } else if (pageColumns.length === 0) {
+        grid.appendChild(renderEmptyState(
+          lastSearchedWord
+            ? "no synonyms found in this band — try a wider frequency"
+            : "begin with a word"
+        ));
       } else {
-        // Render up to COLUMNS_PER_PAGE cells; empty slots are simply not rendered
+        let prevBand = null;
+        // Determine the band of the last entry on the previous page
+        if (currentPage > 0) {
+          const prevPageCols = pages[currentPage - 1];
+          const lastPrevCol = prevPageCols[prevPageCols.length - 1];
+          if (lastPrevCol && lastPrevCol.length > 0) {
+            prevBand = lastPrevCol[lastPrevCol.length - 1].band;
+          }
+        }
+
         pageColumns.forEach(col => {
-          if (col.length > 0) grid.appendChild(renderColumn(col));
+          if (col.length > 0) {
+            const cell = renderColumn(col, prevBand);
+            prevBand = cell._lastBand;
+            grid.appendChild(cell);
+          }
         });
 
-        // If peeking, render the first column of the next page
         if (showPeek) {
           const peekCol = pages[currentPage + 1][0];
           if (peekCol && peekCol.length > 0) {
-            const peek = renderColumn(peekCol);
+            const peek = renderColumn(peekCol, prevBand);
             peek.setAttribute("aria-hidden", "true");
             grid.appendChild(peek);
           }
@@ -763,45 +977,118 @@
     }
 
     // ────────────────────────────────────────────────────────────
-    // Public hook for swapping data later
+    // Fetch
     // ────────────────────────────────────────────────────────────
-    window.setResults = function(newResults) {
-      results = newResults || [];
-      currentPage = 0;
+    let abortController = null;
+    let debounceTimer = null;
+
+    async function fetchSynonyms(word) {
+      if (abortController) abortController.abort();
+      abortController = new AbortController();
+      setLoading(true);
+
+      try {
+        const url = `/synonyms?word=${encodeURIComponent(word)}&tier=${encodeURIComponent(currentTier)}`;
+        const res = await fetch(url, { signal: abortController.signal });
+        if (!res.ok) throw new Error(res.status);
+        const data = await res.json();
+        results = data;
+        currentPage = 0;
+      } catch (err) {
+        if (err.name === "AbortError") return;
+        results = [];
+        currentPage = 0;
+        grid.innerHTML = "";
+        grid.classList.remove("with-peek");
+        grid.classList.add("no-peek");
+        grid.appendChild(renderErrorState("something went wrong — check the backend log"));
+        renderIndicator(0);
+        renderNavArrows(0);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(false);
       render();
-    };
+    }
+
+    function debouncedSearch() {
+      const word = searchInput.value.trim();
+      clearTimeout(debounceTimer);
+      if (abortController) abortController.abort();
+
+      if (!word) {
+        lastSearchedWord = "";
+        results = [];
+        currentPage = 0;
+        render();
+        return;
+      }
+
+      lastSearchedWord = word;
+      debounceTimer = setTimeout(() => fetchSynonyms(word), 250);
+    }
 
     // ────────────────────────────────────────────────────────────
-    // Wiring placeholder — replace with real fetch to /synonyms
+    // Search events
     // ────────────────────────────────────────────────────────────
-    //
-    // Example integration (uncomment and adapt when porting to Flask):
-    //
-    // let abortController = null;
-    // let debounceTimer = null;
-    //
-    // searchInput.addEventListener("input", () => {
-    //   const word = searchInput.value.trim();
-    //   clearTimeout(debounceTimer);
-    //   if (abortController) abortController.abort();
-    //   if (!word) { window.setResults([]); return; }
-    //
-    //   debounceTimer = setTimeout(async () => {
-    //     abortController = new AbortController();
-    //     try {
-    //       const res = await fetch(`/synonyms?word=${encodeURIComponent(word)}&tier=all`,
-    //                                { signal: abortController.signal });
-    //       if (!res.ok) throw new Error(res.status);
-    //       const data = await res.json();
-    //       window.setResults(data);
-    //     } catch (err) {
-    //       if (err.name !== "AbortError") console.error(err);
-    //     }
-    //   }, 250);
-    // });
+    searchInput.addEventListener("input", debouncedSearch);
+
+    searchInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        clearTimeout(debounceTimer);
+        const word = searchInput.value.trim();
+        if (word) {
+          lastSearchedWord = word;
+          fetchSynonyms(word);
+        }
+      }
+    });
+
+    searchSubmit.addEventListener("click", () => {
+      clearTimeout(debounceTimer);
+      const word = searchInput.value.trim();
+      if (word) {
+        lastSearchedWord = word;
+        fetchSynonyms(word);
+      }
+    });
 
     // ────────────────────────────────────────────────────────────
-    // Events
+    // Frequency dropdown
+    // ────────────────────────────────────────────────────────────
+    function buildFreqMenu() {
+      FREQUENCY_TIERS.forEach(t => {
+        const item = document.createElement("button");
+        item.className = "dropdown-item" + (t.value === currentTier ? " active" : "");
+        item.type = "button";
+        item.textContent = t.label;
+        item.addEventListener("click", () => {
+          currentTier = t.value;
+          freqValue.textContent = t.label;
+
+          freqMenu.querySelectorAll(".dropdown-item").forEach(el => el.classList.remove("active"));
+          item.classList.add("active");
+          freqMenu.classList.remove("open");
+
+          if (lastSearchedWord) fetchSynonyms(lastSearchedWord);
+        });
+        freqMenu.appendChild(item);
+      });
+    }
+
+    freqButton.addEventListener("click", (e) => {
+      e.stopPropagation();
+      freqMenu.classList.toggle("open");
+    });
+
+    document.addEventListener("click", () => {
+      freqMenu.classList.remove("open");
+    });
+
+    // ────────────────────────────────────────────────────────────
+    // Navigation
     // ────────────────────────────────────────────────────────────
     prevBtn.addEventListener("click", () => {
       if (currentPage > 0) { currentPage--; render(); }
@@ -820,9 +1107,26 @@
     });
 
     // ────────────────────────────────────────────────────────────
+    // Theme
+    // ────────────────────────────────────────────────────────────
+    const THEMES = ["lumen", "penumbra", "umbra", "synonymicon"];
+    let themeIndex = 0;
+
+    const themeButton = document.getElementById("theme-button");
+
+    themeButton.addEventListener("click", () => {
+      themeIndex = (themeIndex + 1) % THEMES.length;
+      const theme = THEMES[themeIndex];
+      document.body.dataset.theme = theme;
+      themeButton.textContent = theme;
+    });
+
+    // ────────────────────────────────────────────────────────────
     // Init
     // ────────────────────────────────────────────────────────────
+    buildFreqMenu();
     render();
+    searchInput.focus();
   </script>
 </body>
 </html>
