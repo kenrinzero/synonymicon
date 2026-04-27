@@ -1,596 +1,828 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Synonymicon</title>
-<style>
-*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Synonymicon</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      /* Palette — warm cream tray, lighter inner cells */
+      --background:        #f3ede2;
+      --surface:           #ebe3d4;   /* outer "tray" cards — slightly warmer */
+      --column:            #f7f2e8;   /* inner column cells — lighter than surface */
+      --foreground:        #2a241c;
+      --foreground-muted:  rgba(42, 36, 28, 0.65);
+      --foreground-faint:  rgba(42, 36, 28, 0.45);
+      --border:            rgba(42, 36, 28, 0.10);
+      --border-strong:     rgba(42, 36, 28, 0.18);
 
-body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
-  background: #bab9b9;
-  color: #1a1a1a;
-  height: 100vh;
-  overflow: hidden;
-}
+      /* Shadows — soft for outer tray, subtle for inner cells */
+      --shadow-soft:       0 8px 32px -8px rgba(50, 40, 25, 0.10),
+                           0 2px 8px -2px rgba(50, 40, 25, 0.05);
+      --shadow-subtle:     0 1px 4px rgba(50, 40, 25, 0.04);
 
-.container {
-  display: flex;
-  height: 100vh;
-  width: 100vw;
-}
+      /* Typography */
+      --font-serif: "Cormorant Garamond", Georgia, "Times New Roman", serif;
 
-/* ── Left panel (38%) ── */
-.left {
-  width: 38%;
-  min-width: 38%;
-  background: #F2F0EF;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  z-index: 1;
-  padding: 0 28px;
-}
+      /* Layout */
+      --left-ratio: 38fr;
+      --right-ratio: 62fr;
+      --gap-outer: 2.5rem;
+      --gap-inner: 1rem;        /* gap between column cells */
+      --radius-outer: 2rem;
+      --radius-inner: 1.5rem;
 
-.wordmark {
-  font-family: 'Georgia', 'Times New Roman', 'Hoefler Text', 'Garamond', serif;
-  font-size: 22px;
-  font-weight: 400;
-  color: #1a1a1a;
-  letter-spacing: -0.01em;
-  padding-top: 28px;
-  margin-bottom: 0;
-  user-select: none;
-}
+      /* Animation */
+      --page-transition: 220ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
 
-/* Search/control surface — upper-third anchoring */
-.search-area {
-  margin-top: 30%;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-.search-input {
-  width: 100%;
-  height: 52px;
-  border: none;
-  border-radius: 14px;
-  background: #5b5b5b;
-  color: #fff;
-  font-size: 16px;
-  padding: 0 20px;
-  outline: none;
-  font-family: inherit;
-}
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
 
-.search-input::placeholder {
-  color: #9a9897;
-}
+    body {
+      font-family: var(--font-serif);
+      background: var(--background);
+      color: var(--foreground);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      font-feature-settings: "liga", "kern";
+    }
 
-.search-input:focus {
-  background: #4e4e4e;
-}
+    /* ────────────────────────────────────────────────────────── */
+    /* Shell                                                      */
+    /* ────────────────────────────────────────────────────────── */
 
-/* Controls row */
-.controls {
-  display: flex;
-  gap: 20px;
-  align-items: center;
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #8a8684;
-  user-select: none;
-}
+    .shell {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
 
-.corpus-label {
-  font-weight: 500;
-  color: #7a7775;
-}
+    .brand {
+      position: absolute;
+      top: 2rem;
+      left: 2.5rem;
+      z-index: 20;
+      font-family: var(--font-serif);
+      font-size: 1.5rem;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      color: var(--foreground);
+    }
 
-.freq-selector {
-  position: relative;
-}
+    .layout {
+      flex: 1;
+      display: grid;
+      grid-template-columns: var(--left-ratio) var(--right-ratio);
+      grid-template-rows: 1fr;       /* row fills available height */
+      gap: var(--gap-outer);
+      padding: 5rem var(--gap-outer) var(--gap-outer);
+      min-height: 0;
+    }
 
-.freq-select {
-  appearance: none;
-  -webkit-appearance: none;
-  background: none;
-  border: none;
-  font: inherit;
-  color: inherit;
-  letter-spacing: inherit;
-  text-transform: inherit;
-  cursor: pointer;
-  padding-right: 14px;
-  text-align: left;
-}
+    /* ────────────────────────────────────────────────────────── */
+    /* Left panel — search tray + watermark                       */
+    /* ────────────────────────────────────────────────────────── */
 
-.freq-selector::after {
-  content: '\25BE';
-  position: absolute;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 9px;
-  color: #8a8684;
-  pointer-events: none;
-}
+    .left-panel {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
 
-/* ── Right panel (62%) ── */
-.right {
-  width: 62%;
-  min-width: 62%;
-  background: #9a9897;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-}
+    .watermark {
+      position: absolute;
+      left: -0.5rem;
+      bottom: 1rem;
+      font-family: var(--font-serif);
+      font-style: italic;
+      font-size: 18rem;
+      line-height: 1;
+      color: rgba(42, 36, 28, 0.07);
+      pointer-events: none;
+      user-select: none;
+      z-index: 0;
+    }
 
-.right::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 140px;
-  height: 100%;
-  background: linear-gradient(to right, #bab9b9, transparent);
-  pointer-events: none;
-  z-index: 0;
-}
+    .search-tray {
+      position: relative;
+      z-index: 1;
+      align-self: center;
+      width: 100%;
+      max-width: 28rem;
+      margin-top: 18vh;
+      padding: 1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-outer);
+      box-shadow: var(--shadow-soft);
+    }
 
-.results-area {
-  flex: 1;
-  height: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: row;
-  gap: 14px;
-  padding: 24px 28px 12px;
-  position: relative;
-  z-index: 1;
-  overflow-x: auto;
-  overflow-y: hidden;
-  align-items: stretch;
-}
+    .search-card {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.875rem 1.125rem;
+      background: var(--column);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-inner);
+      box-shadow: var(--shadow-subtle);
+    }
 
-.col {
-  flex: 0 0 340px;
-  background: #F2F0EF;
-  border-radius: 12px;
-  padding: 18px 16px;
-  overflow-y: hidden;
-  flex-shrink: 0;
-}
+    .search-icon {
+      flex-shrink: 0;
+      width: 1.125rem;
+      height: 1.125rem;
+      color: var(--foreground-muted);
+    }
 
-/* Result items */
-.result-item {
-  margin-bottom: 16px;
-  padding-bottom: 4px;
-  min-width: 0;
-}
+    .search-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      font-family: var(--font-serif);
+      font-size: 1.0625rem;
+      color: var(--foreground);
+      padding: 0;
+    }
 
-.result-head {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-}
+    .search-input::placeholder {
+      color: var(--foreground-muted);
+      font-style: italic;
+    }
 
-.result-word {
-  font-size: 28px;
-  font-weight: 600;
-  color: #1a1a1a;
-  line-height: 1.2;
-  letter-spacing: -0.01em;
-}
+    .search-submit {
+      flex-shrink: 0;
+      width: 2.125rem;
+      height: 2.125rem;
+      border-radius: 50%;
+      background: var(--background);
+      border: 1px solid var(--border-strong);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--foreground);
+      transition: background var(--page-transition);
+    }
 
-.result-zipf {
-  font-size: 11px;
-  color: #a8a4a2;
-  font-weight: 400;
-}
+    .search-submit:hover {
+      background: var(--surface);
+    }
 
-.result-def {
-  font-size: 13px;
-  color: #7a7775;
-  margin-top: 3px;
-  line-height: 1.4;
-  overflow-wrap: break-word;
-  word-break: break-word;
-}
+    .search-submit svg {
+      width: 0.875rem;
+      height: 0.875rem;
+    }
 
-.result-def .undefined {
-  font-style: italic;
-}
+    .controls-row {
+      display: flex;
+      align-items: stretch;
+      gap: 0.75rem;
+      padding: 1rem 0.5rem 0.25rem;
+    }
 
-/* ── States ── */
-.state-msg {
-  padding: 18px 14px;
-  font-size: 13px;
-  color: #a8a4a2;
-  line-height: 1.4;
-}
+    .control-button {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      padding: 0.25rem 0.25rem;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      font-family: var(--font-serif);
+      font-size: 0.9375rem;
+      color: var(--foreground);
+      transition: color var(--page-transition);
+    }
 
-.state-msg.error {
-  color: #a05050;
-}
+    .control-button:hover {
+      color: var(--foreground);
+    }
 
-.loading-dot {
-  position: absolute;
-  bottom: 18px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #a8a4a2;
-  animation: pulse 1.2s ease-in-out infinite;
-  z-index: 2;
-}
+    .control-button .label {
+      color: var(--foreground-muted);
+    }
 
-@keyframes pulse {
-  0%, 100% { opacity: 0.2; }
-  50% { opacity: 0.8; }
-}
+    .control-button .value {
+      font-weight: 500;
+      color: var(--foreground);
+    }
 
-/* ── Column navigation ── */
-.col-nav {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 6px 28px 0;
-  position: relative;
-  z-index: 1;
-}
+    .control-button svg {
+      width: 1rem;
+      height: 1rem;
+      color: var(--foreground-muted);
+    }
 
-.col-nav.visible {
-  display: flex;
-}
+    .control-divider {
+      width: 1px;
+      background: var(--border);
+    }
 
-.col-nav-dots {
-  display: flex;
-  gap: 5px;
-  align-items: center;
-}
+    /* ────────────────────────────────────────────────────────── */
+    /* Right panel — word surface                                 */
+    /* ────────────────────────────────────────────────────────── */
 
-.col-nav-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #8a8684;
-  opacity: 0.25;
-  cursor: pointer;
-  transition: opacity 0.15s;
-}
+    .right-panel {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
 
-.col-nav-dot.active {
-  opacity: 0.7;
-}
+    .nav-arrow {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 10;
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: 50%;
+      background: var(--surface);
+      border: 1px solid var(--border-strong);
+      box-shadow: var(--shadow-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--foreground);
+      transition: background var(--page-transition), opacity var(--page-transition);
+    }
 
-.col-nav-arrow {
-  font-size: 13px;
-  color: #8a8684;
-  opacity: 0.4;
-  cursor: pointer;
-  user-select: none;
-  transition: opacity 0.15s;
-}
+    .nav-arrow:hover {
+      background: var(--background);
+    }
 
-.col-nav-arrow:hover {
-  opacity: 0.7;
-}
+    .nav-arrow:disabled {
+      opacity: 0;
+      pointer-events: none;
+    }
 
-/* ── Band separator ── */
-.band-sep {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 8px 0;
-}
+    .nav-arrow.left  { left:  -0.5rem; }
+    .nav-arrow.right { right: -0.5rem; }
 
-.band-sep::before {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: #dedad8;
-}
+    .nav-arrow svg {
+      width: 0.875rem;
+      height: 0.875rem;
+    }
 
-.band-sep-label {
-  font-size: 10px;
-  color: #b0adaa;
-  letter-spacing: 0.03em;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
+    .word-surface {
+      position: relative;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      padding: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-outer);
+      box-shadow: var(--shadow-soft);
+      overflow: hidden;          /* clips peek column */
+    }
 
-/* ── Bottom strip ── */
-.bottom-strip {
-  height: 36px;
-  margin: 12px 28px 18px;
-  border-radius: 8px;
-  background: #c4c0be;
-  flex-shrink: 0;
-}
-</style>
+    .columns-grid {
+      flex: 1;
+      display: grid;
+      gap: var(--gap-inner);
+      min-height: 0;
+      animation: page-in var(--page-transition) ease-out;
+    }
+
+    .columns-grid.with-peek {
+      /* 4 columns; col 4 bleeds ~36px past the surface's overflow:hidden */
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      width: calc(133.333% - 4rem);
+    }
+
+    .columns-grid.no-peek {
+      grid-template-columns: 1fr 1fr 1fr;
+      width: 100%;
+    }
+
+    @keyframes page-in {
+      from { opacity: 0; transform: translateX(8px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    .column-cell {
+      background: var(--column);
+      background-clip: padding-box;   /* prevents square corner from leaking past radius */
+      border: 1px solid var(--border);
+      border-radius: var(--radius-inner);
+      box-shadow: var(--shadow-subtle);
+      overflow: hidden;
+    }
+
+    .column-cell.empty {
+      /* Reserved for future use; currently not rendered. */
+      display: none;
+    }
+
+    .column-inner {
+      height: 100%;
+      padding: 2.5rem 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+      overflow: hidden;
+    }
+
+    /* ────────────────────────────────────────────────────────── */
+    /* Entry                                                      */
+    /* ────────────────────────────────────────────────────────── */
+
+    .entry {
+      display: flex;
+      flex-direction: column;
+      gap: 0.375rem;
+      cursor: default;
+    }
+
+    .entry-headword {
+      font-family: var(--font-serif);
+      font-size: 2rem;
+      font-weight: 500;
+      line-height: 1.05;
+      letter-spacing: -0.01em;
+      color: rgba(42, 36, 28, 0.85);
+      transition: color var(--page-transition);
+    }
+
+    .entry:hover .entry-headword {
+      color: var(--foreground);
+    }
+
+    .entry-zipf {
+      font-size: 0.75rem;
+      font-weight: 400;
+      color: var(--foreground-faint);
+      margin-left: 0.375rem;
+      vertical-align: super;
+      letter-spacing: 0;
+    }
+
+    .entry-def {
+      font-family: var(--font-serif);
+      font-style: italic;
+      font-size: 1rem;
+      line-height: 1.35;
+      color: var(--foreground-muted);
+      transition: color var(--page-transition);
+    }
+
+    .entry:hover .entry-def {
+      color: rgba(42, 36, 28, 0.78);
+    }
+
+    .entry-def.undefined {
+      color: var(--foreground-faint);
+    }
+
+    /* ────────────────────────────────────────────────────────── */
+    /* Page indicator                                             */
+    /* ────────────────────────────────────────────────────────── */
+
+    .page-indicator {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding-top: 1.25rem;
+    }
+
+    .page-dot {
+      background: rgba(42, 36, 28, 0.25);
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      border-radius: 9999px;
+      transition: width var(--page-transition), height var(--page-transition), background var(--page-transition);
+    }
+
+    .page-dot {
+      width: 0.375rem;
+      height: 0.375rem;
+    }
+
+    .page-dot.active {
+      width: 1.25rem;
+      height: 0.375rem;
+      background: rgba(42, 36, 28, 0.7);
+    }
+
+    .page-dot:not(.active):hover {
+      background: rgba(42, 36, 28, 0.4);
+    }
+
+    /* ────────────────────────────────────────────────────────── */
+    /* States                                                     */
+    /* ────────────────────────────────────────────────────────── */
+
+    .state-message {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      font-family: var(--font-serif);
+      font-style: italic;
+      font-size: 1.0625rem;
+      color: var(--foreground-muted);
+      text-align: center;
+    }
+
+    .state-message.error {
+      color: #a05050;
+    }
+
+    /* ────────────────────────────────────────────────────────── */
+    /* Footer                                                     */
+    /* ────────────────────────────────────────────────────────── */
+
+    footer {
+      flex-shrink: 0;
+      height: 4rem;
+      padding: 0 var(--gap-outer);
+      border-top: 1px solid var(--border);
+      background: rgba(235, 227, 212, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 1.5rem;
+    }
+
+    .footer-link {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      font-family: var(--font-serif);
+      font-size: 0.9375rem;
+      color: rgba(42, 36, 28, 0.75);
+      transition: color var(--page-transition);
+    }
+
+    .footer-link:hover {
+      color: var(--foreground);
+    }
+  </style>
 </head>
 <body>
-<div class="container">
-  <div class="left">
-    <div class="wordmark">Synonymicon</div>
-    <div class="search-area">
-      <input type="text" class="search-input" id="searchInput" placeholder="search for synonyms...">
-      <div class="controls">
-        <span class="corpus-label">corpus: wordfreq</span>
-        <div class="freq-selector">
-          <select class="freq-select" id="freqSelect">
-            <option value="all">all</option>
-            <option value="uncommon">10k-30k</option>
-            <option value="rare">30k-80k</option>
-            <option value="exotic">80k-150k</option>
-            <option value="absurd">150k+</option>
-          </select>
-        </div>
+  <div class="shell">
+    <h1 class="brand">Synonymicon</h1>
+
+    <main class="layout">
+      <!-- ─────────── LEFT PANEL ─────────── -->
+      <div class="left-panel">
+        <div class="watermark" aria-hidden="true">&amp;</div>
+
+        <section class="search-tray">
+          <div class="search-card">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.3-4.3"/>
+            </svg>
+            <input
+              id="search-input"
+              class="search-input"
+              type="text"
+              placeholder="discover rare synonyms"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button id="search-submit" class="search-submit" type="button" aria-label="search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 12h14"/>
+                <path d="m12 5 7 7-7 7"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="controls-row">
+            <button class="control-button" type="button">
+              <span><span class="label">corpus: </span><span class="value">wordfreq</span></span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m6 9 6 6 6-6"/>
+              </svg>
+            </button>
+            <div class="control-divider"></div>
+            <button class="control-button" type="button">
+              <span><span class="label">frequency: </span><span class="value">all</span></span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m6 9 6 6 6-6"/>
+              </svg>
+            </button>
+          </div>
+        </section>
       </div>
-    </div>
+
+      <!-- ─────────── RIGHT PANEL ─────────── -->
+      <section class="right-panel">
+        <button id="nav-prev" class="nav-arrow left" type="button" aria-label="previous page">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m15 18-6-6 6-6"/>
+          </svg>
+        </button>
+        <button id="nav-next" class="nav-arrow right" type="button" aria-label="next page">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m9 18 6-6-6-6"/>
+          </svg>
+        </button>
+
+        <div class="word-surface">
+          <div id="columns-grid" class="columns-grid"></div>
+          <div id="page-indicator" class="page-indicator"></div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <button class="footer-link" type="button">About</button>
+    </footer>
   </div>
-  <div class="right" id="rightPanel">
-    <div class="results-area" id="resultsArea"></div>
-    <div class="col-nav" id="colNav">
-      <div class="col-nav-dots" id="colNavDots"></div>
-      <div class="col-nav-arrow" id="colNavArrow">&rarr;</div>
-    </div>
-    <div class="bottom-strip"></div>
-  </div>
-</div>
 
-<script>
-let currentTier = 'all';
-let debounceTimer = null;
-let abortController = null;
+  <script>
+    // ────────────────────────────────────────────────────────────
+    // Placeholder data. Replace with real /synonyms response.
+    // Expected shape: { word, definition, zipf, band }
+    // ────────────────────────────────────────────────────────────
+    const PLACEHOLDER_RESULTS = [
+      { word: "recondite",     definition: "little known; abstruse; difficult to penetrate.", zipf: 2.1, band: "rare" },
+      { word: "abstruse",      definition: "difficult to understand; deeply subtle.",         zipf: 2.4, band: "rare" },
+      { word: "esoteric",      definition: "intended for or understood by the initiated; arcane.", zipf: 3.0, band: "uncommon" },
+      { word: "obscure",       definition: "not discovered or known about; unclear.",         zipf: 3.6, band: "uncommon" },
+      { word: "arcane",        definition: "understood by few; mysterious; secret.",          zipf: 2.9, band: "uncommon" },
+      { word: "abditive",      definition: "tending to hide or withdraw; secretive.",         zipf: 0.5, band: "absurd" },
+      { word: "occulted",      definition: "hidden; concealed from view or knowledge.",       zipf: 1.8, band: "very rare" },
+      { word: "implicative",   definition: "suggesting something indirectly; implied.",       zipf: 1.5, band: "very rare" },
+      { word: "inscitable",    definition: "incapable of being roused or provoked.",          zipf: 0.3, band: "absurd" },
+      { word: "rebarbative",   definition: "tending to repel; offensive; disagreeable.",      zipf: 1.1, band: "very rare" },
+      { word: "caliginous",    definition: "covered with mist; obscure; dark.",                zipf: 0.7, band: "absurd" },
+      { word: "doleful",       definition: "causing grief or lamentation.",                    zipf: 2.0, band: "rare" },
+      { word: "querulous",     definition: "occurring rarely; complaining peevishly.",         zipf: 1.9, band: "very rare" },
+      { word: "ineluctable",   definition: "too certain to be avoided; inescapable.",          zipf: 1.4, band: "very rare" },
+      { word: "tenebrous",     definition: "dark; obscure; gloomy.",                           zipf: 1.2, band: "very rare" },
+      { word: "lugubrious",    definition: "looking or sounding sad and dismal.",              zipf: 1.6, band: "very rare" },
+      { word: "perspicacious", definition: "having keen mental perception and understanding.", zipf: 2.0, band: "rare" },
+      { word: "pellucid",      definition: "translucently clear; easily understood.",          zipf: 1.7, band: "very rare" },
+      { word: "recherché",     definition: "rare; exotic; carefully chosen.",                  zipf: 1.3, band: "very rare" },
+      { word: "sesquipedalian",definition: "characterized by long words; long-winded.",        zipf: 0.9, band: "absurd" },
+      { word: "desuetude",     definition: "a state of disuse or inactivity.",                 zipf: 0.8, band: "absurd" },
+      { word: "crepuscular",   definition: "of or resembling twilight; dim.",                  zipf: 1.5, band: "very rare" },
+      { word: "stygian",       definition: "extremely dark, gloomy, or forbidding.",           zipf: 1.4, band: "very rare" },
+      { word: "byzantine",     definition: "excessively complicated; intricate.",              zipf: 3.0, band: "uncommon" },
+      { word: "inscrutable",   definition: "impossible to understand or interpret.",           zipf: 2.5, band: "rare" },
+      { word: "hermetic",      definition: "completely sealed; airtight; impervious.",         zipf: 2.1, band: "rare" },
+      { word: "chthonic",      definition: "concerning the deities or spirits of the underworld.", zipf: 0.6, band: "absurd" },
+      { word: "saturnine",     definition: "slow and gloomy; cold and steady in mood.",        zipf: 1.5, band: "very rare" },
+      { word: "fuliginous",    definition: "sooty; dusky; resembling smoke.",                  zipf: 0.4, band: "absurd" },
+      { word: "gnomic",        definition: "expressed in or of the nature of short pithy maxims.", zipf: 1.1, band: "very rare" }
+    ];
 
-const searchInput = document.getElementById('searchInput');
-const freqSelect  = document.getElementById('freqSelect');
-const resultsArea = document.getElementById('resultsArea');
-const colNav      = document.getElementById('colNav');
-const colNavDots  = document.getElementById('colNavDots');
-const colNavArrow = document.getElementById('colNavArrow');
+    // ────────────────────────────────────────────────────────────
+    // State
+    // ────────────────────────────────────────────────────────────
+    const COLUMNS_PER_PAGE = 3;
+    const ITEM_HEIGHT_PX = 130;       // headword + 2-line def + gap, with corner margin
+    const COLUMN_PADDING_PX = 80;     // top + bottom padding inside .column-inner
+    const INDICATOR_RESERVE_PX = 50;  // approx height of page indicator + its top padding
 
-function showLoading() {
-  hideLoading();
-  const dot = document.createElement('div');
-  dot.className = 'loading-dot';
-  dot.id = 'loadingDot';
-  document.getElementById('rightPanel').appendChild(dot);
-}
+    let results = PLACEHOLDER_RESULTS.slice();
+    let currentPage = 0;
 
-function hideLoading() {
-  const dot = document.getElementById('loadingDot');
-  if (dot) dot.remove();
-}
+    // ────────────────────────────────────────────────────────────
+    // DOM refs
+    // ────────────────────────────────────────────────────────────
+    const grid = document.getElementById("columns-grid");
+    const indicator = document.getElementById("page-indicator");
+    const prevBtn = document.getElementById("nav-prev");
+    const nextBtn = document.getElementById("nav-next");
+    const searchInput = document.getElementById("search-input");
+    const searchSubmit = document.getElementById("search-submit");
 
-function showMessage(text, isError) {
-  resultsArea.innerHTML = '';
-  colNav.classList.remove('visible');
-  const msg = document.createElement('div');
-  msg.className = 'state-msg' + (isError ? ' error' : '');
-  msg.textContent = text;
-  resultsArea.appendChild(msg);
-}
+    // ────────────────────────────────────────────────────────────
+    // Layout math
+    // ────────────────────────────────────────────────────────────
+    function calculateItemsPerColumn() {
+      const surface = document.querySelector(".word-surface");
+      if (!surface) return 5;
+      const surfaceHeight = surface.clientHeight;
+      const surfacePadding = 48; // 1.5rem top + 1.5rem bottom
+      const available = surfaceHeight - surfacePadding - INDICATOR_RESERVE_PX - COLUMN_PADDING_PX;
+      const items = Math.floor(available / ITEM_HEIGHT_PX);
+      return Math.max(3, items);
+    }
 
-function renderResult(item) {
-  const el = document.createElement('div');
-  el.className = 'result-item';
-
-  const head = document.createElement('div');
-  head.className = 'result-head';
-
-  const word = document.createElement('span');
-  word.className = 'result-word';
-  word.textContent = item.word;
-
-  const zipf = document.createElement('span');
-  zipf.className = 'result-zipf';
-  zipf.textContent = item.zipf.toFixed(1);
-
-  head.appendChild(word);
-  head.appendChild(zipf);
-
-  const def = document.createElement('div');
-  def.className = 'result-def';
-  if (item.definition === '[undefined]') {
-    const em = document.createElement('em');
-    em.className = 'undefined';
-    em.textContent = '[undefined]';
-    def.appendChild(em);
-  } else {
-    def.textContent = item.definition;
-  }
-
-  el.appendChild(head);
-  el.appendChild(def);
-  return el;
-}
-
-const BAND_DISPLAY = {
-  'uncommon': '~10k–30k',
-  'rare': '~30k–80k',
-  'very rare': '~80k–150k',
-  'absurd': '~150k+',
-};
-
-function renderResults(items) {
-  resultsArea.innerHTML = '';
-
-  // Column height = results area height - column nav - padding
-  const areaRect = resultsArea.getBoundingClientRect();
-  const colNavHeight = 30; // approximate height of column nav
-  const colMaxHeight = areaRect.height - colNavHeight - 12; // 12px bottom padding
-  const itemsPerCol = Math.max(3, Math.floor(colMaxHeight / 95)); // 95px per item — conservative to prevent overflow
-
-  let col = createCol(colMaxHeight);
-  resultsArea.appendChild(col);
-  let count = 0;
-
-  items.forEach((item, i) => {
-    // Band separator when band changes (only in "all" mode)
-    if (currentTier === 'all' && i > 0 && item.band !== items[i - 1].band) {
-      if (count >= itemsPerCol) {
-        col = createCol(colMaxHeight);
-        resultsArea.appendChild(col);
-        count = 0;
+    function chunkIntoColumns(items, perColumn) {
+      const cols = [];
+      for (let i = 0; i < items.length; i += perColumn) {
+        cols.push(items.slice(i, i + perColumn));
       }
-      col.appendChild(createBandSep(BAND_DISPLAY[item.band] || item.band));
-      count++;
+      return cols;
     }
 
-    // New column when full
-    if (count >= itemsPerCol) {
-      col = createCol(colMaxHeight);
-      resultsArea.appendChild(col);
-      count = 0;
+    function chunkIntoPages(columns, perPage) {
+      const pages = [];
+      for (let i = 0; i < columns.length; i += perPage) {
+        pages.push(columns.slice(i, i + perPage));
+      }
+      return pages.length === 0 ? [[]] : pages;
     }
 
-    col.appendChild(renderResult(item));
-    count++;
-  });
+    // ────────────────────────────────────────────────────────────
+    // Render
+    // ────────────────────────────────────────────────────────────
+    function renderEntry(entry) {
+      const div = document.createElement("div");
+      div.className = "entry";
 
-  buildColNav();
-}
+      const headword = document.createElement("h3");
+      headword.className = "entry-headword";
+      headword.textContent = entry.word;
 
-function createCol(maxHeight) {
-  const col = document.createElement('div');
-  col.className = 'col';
-  col.style.maxHeight = maxHeight + 'px';
-  return col;
-}
+      if (typeof entry.zipf === "number") {
+        const zipf = document.createElement("span");
+        zipf.className = "entry-zipf";
+        zipf.textContent = entry.zipf.toFixed(1);
+        headword.appendChild(zipf);
+      }
 
-function createBandSep(bandLabel) {
-  const sep = document.createElement('div');
-  sep.className = 'band-sep';
-  const label = document.createElement('span');
-  label.className = 'band-sep-label';
-  label.textContent = bandLabel || '';
-  sep.appendChild(label);
-  return sep;
-}
+      const def = document.createElement("p");
+      def.className = "entry-def";
+      if (!entry.definition || entry.definition === "[undefined]") {
+        def.classList.add("undefined");
+        def.textContent = "[undefined]";
+      } else {
+        def.textContent = entry.definition;
+      }
 
-function buildColNav() {
-  const cols = resultsArea.querySelectorAll('.col');
-  colNavDots.innerHTML = '';
-  colNav.classList.remove('visible');
+      div.appendChild(headword);
+      div.appendChild(def);
+      return div;
+    }
 
-  if (cols.length <= 1) return;
+    function renderColumn(entries) {
+      const cell = document.createElement("div");
+      cell.className = "column-cell";
 
-  colNav.classList.add('visible');
+      const inner = document.createElement("div");
+      inner.className = "column-inner";
 
-  cols.forEach((col, i) => {
-    const dot = document.createElement('div');
-    dot.className = 'col-nav-dot' + (i === 0 ? ' active' : '');
-    dot.addEventListener('click', () => {
-      col.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
-      setActiveDot(i);
+      entries.forEach(e => inner.appendChild(renderEntry(e)));
+
+      cell.appendChild(inner);
+      return cell;
+    }
+
+    function renderEmptyState(message) {
+      const div = document.createElement("div");
+      div.className = "state-message";
+      div.textContent = message;
+      return div;
+    }
+
+    function render() {
+      const itemsPerCol = calculateItemsPerColumn();
+      const allColumns = chunkIntoColumns(results, itemsPerCol);
+      const pages = chunkIntoPages(allColumns, COLUMNS_PER_PAGE);
+
+      // Clamp current page
+      if (currentPage >= pages.length) currentPage = pages.length - 1;
+      if (currentPage < 0) currentPage = 0;
+
+      const pageColumns = pages[currentPage] || [];
+      const isLastPage = currentPage === pages.length - 1;
+      const showPeek = !isLastPage && pages.length > 1;
+
+      // Force reflow + restart animation by removing/re-adding the class
+      grid.innerHTML = "";
+      grid.classList.remove("with-peek", "no-peek");
+      // Trigger reflow so animation restarts
+      void grid.offsetWidth;
+      grid.classList.add(showPeek ? "with-peek" : "no-peek");
+
+      if (pageColumns.length === 0) {
+        grid.appendChild(renderEmptyState("no results"));
+      } else {
+        // Render up to COLUMNS_PER_PAGE cells; empty slots are simply not rendered
+        pageColumns.forEach(col => {
+          if (col.length > 0) grid.appendChild(renderColumn(col));
+        });
+
+        // If peeking, render the first column of the next page
+        if (showPeek) {
+          const peekCol = pages[currentPage + 1][0];
+          if (peekCol && peekCol.length > 0) {
+            const peek = renderColumn(peekCol);
+            peek.setAttribute("aria-hidden", "true");
+            grid.appendChild(peek);
+          }
+        }
+      }
+
+      renderIndicator(pages.length);
+      renderNavArrows(pages.length);
+    }
+
+    function renderIndicator(pageCount) {
+      indicator.innerHTML = "";
+      if (pageCount <= 1) return;
+
+      for (let i = 0; i < pageCount; i++) {
+        const dot = document.createElement("button");
+        dot.className = "page-dot" + (i === currentPage ? " active" : "");
+        dot.type = "button";
+        dot.setAttribute("aria-label", `Go to page ${i + 1}`);
+        dot.addEventListener("click", () => {
+          currentPage = i;
+          render();
+        });
+        indicator.appendChild(dot);
+      }
+    }
+
+    function renderNavArrows(pageCount) {
+      prevBtn.disabled = currentPage === 0;
+      nextBtn.disabled = currentPage >= pageCount - 1;
+    }
+
+    // ────────────────────────────────────────────────────────────
+    // Public hook for swapping data later
+    // ────────────────────────────────────────────────────────────
+    window.setResults = function(newResults) {
+      results = newResults || [];
+      currentPage = 0;
+      render();
+    };
+
+    // ────────────────────────────────────────────────────────────
+    // Wiring placeholder — replace with real fetch to /synonyms
+    // ────────────────────────────────────────────────────────────
+    //
+    // Example integration (uncomment and adapt when porting to Flask):
+    //
+    // let abortController = null;
+    // let debounceTimer = null;
+    //
+    // searchInput.addEventListener("input", () => {
+    //   const word = searchInput.value.trim();
+    //   clearTimeout(debounceTimer);
+    //   if (abortController) abortController.abort();
+    //   if (!word) { window.setResults([]); return; }
+    //
+    //   debounceTimer = setTimeout(async () => {
+    //     abortController = new AbortController();
+    //     try {
+    //       const res = await fetch(`/synonyms?word=${encodeURIComponent(word)}&tier=all`,
+    //                                { signal: abortController.signal });
+    //       if (!res.ok) throw new Error(res.status);
+    //       const data = await res.json();
+    //       window.setResults(data);
+    //     } catch (err) {
+    //       if (err.name !== "AbortError") console.error(err);
+    //     }
+    //   }, 250);
+    // });
+
+    // ────────────────────────────────────────────────────────────
+    // Events
+    // ────────────────────────────────────────────────────────────
+    prevBtn.addEventListener("click", () => {
+      if (currentPage > 0) { currentPage--; render(); }
     });
-    colNavDots.appendChild(dot);
-  });
 
-  updateArrow();
-}
-
-function setActiveDot(index) {
-  const dots = colNavDots.querySelectorAll('.col-nav-dot');
-  dots.forEach((d, i) => d.classList.toggle('active', i === index));
-}
-
-function updateArrow() {
-  const cols = resultsArea.querySelectorAll('.col');
-  if (cols.length === 0) return;
-  const lastCol = cols[cols.length - 1];
-  const rect = lastCol.getBoundingClientRect();
-  const areaRect = resultsArea.getBoundingClientRect();
-  colNavArrow.style.display = rect.right > areaRect.right ? 'block' : 'none';
-}
-
-// Track scroll position to update active dot
-resultsArea.addEventListener('scroll', () => {
-  const cols = resultsArea.querySelectorAll('.col');
-  const areaLeft = resultsArea.scrollLeft;
-  let active = 0;
-  cols.forEach((col, i) => {
-    if (col.offsetLeft <= areaLeft + 50) active = i;
-  });
-  setActiveDot(active);
-  updateArrow();
-});
-
-colNavArrow.addEventListener('click', () => {
-  const cols = resultsArea.querySelectorAll('.col');
-  const areaLeft = resultsArea.scrollLeft;
-  for (const col of cols) {
-    if (col.offsetLeft > areaLeft + 10) {
-      col.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
-      break;
-    }
-  }
-});
-
-async function fetchSynonyms() {
-  const word = searchInput.value.trim();
-  if (!word) {
-    resultsArea.innerHTML = '';
-    colNav.classList.remove('visible');
-    hideLoading();
-    return;
-  }
-
-  if (abortController) abortController.abort();
-  abortController = new AbortController();
-
-  showLoading();
-
-  const params = new URLSearchParams({ word, tier: currentTier });
-  try {
-    const res = await fetch('/synonyms?' + params.toString(), {
-      signal: abortController.signal,
+    nextBtn.addEventListener("click", () => {
+      const itemsPerCol = calculateItemsPerColumn();
+      const totalPages = Math.ceil(chunkIntoColumns(results, itemsPerCol).length / COLUMNS_PER_PAGE);
+      if (currentPage < totalPages - 1) { currentPage++; render(); }
     });
-    if (!res.ok) {
-      hideLoading();
-      showMessage('something went wrong — check the backend log', true);
-      return;
-    }
-    const data = await res.json();
-    hideLoading();
-    if (data.length === 0) {
-      showMessage('no synonyms found — try broadening the frequency range');
-    } else {
-      renderResults(data);
-    }
-  } catch (e) {
-    if (e.name !== 'AbortError') {
-      hideLoading();
-      showMessage('something went wrong — check the backend log', true);
-    }
-  }
-}
 
-searchInput.addEventListener('input', () => {
-  clearTimeout(debounceTimer);
-  if (!searchInput.value.trim()) {
-    resultsArea.innerHTML = '';
-    colNav.classList.remove('visible');
-    hideLoading();
-    return;
-  }
-  debounceTimer = setTimeout(fetchSynonyms, 250);
-});
+    let resizeRaf = null;
+    window.addEventListener("resize", () => {
+      if (resizeRaf) cancelAnimationFrame(resizeRaf);
+      resizeRaf = requestAnimationFrame(render);
+    });
 
-freqSelect.addEventListener('change', () => {
-  currentTier = freqSelect.value;
-  clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(fetchSynonyms, 250);
-});
-</script>
+    // ────────────────────────────────────────────────────────────
+    // Init
+    // ────────────────────────────────────────────────────────────
+    render();
+  </script>
 </body>
 </html>
