@@ -121,6 +121,7 @@
       font-weight: 500;
       letter-spacing: -0.01em;
       color: var(--foreground);
+      cursor: pointer;
     }
 
     .layout {
@@ -241,20 +242,20 @@
     }
 
     .control-button {
-      flex: 0 0 8rem;
-      min-width: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0.25rem;
-      background: transparent;
-      border: none;
-      cursor: pointer;
-      font-family: var(--font-serif);
-      font-size: 0.9375rem;
-      color: var(--foreground);
-      transition: color var(--page-transition);
-    }
+        flex: 0 0 auto;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.25rem 0.5rem;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        font-family: var(--font-serif);
+        font-size: 0.875rem;
+        color: var(--foreground);
+        transition: color var(--page-transition);
+      }
 
     .control-button .text {
       display: flex;
@@ -421,6 +422,7 @@
       display: grid;
       gap: var(--gap-inner);
       min-height: 0;
+      overflow: hidden;
       animation: page-in var(--page-transition) ease-out;
     }
 
@@ -655,11 +657,113 @@
     .footer-link:hover {
       color: var(--foreground);
     }
+
+    /* ────────────────────────────────────────────────────────── */
+    /* Mobile — ≤768px                                            */
+    /* ────────────────────────────────────────────────────────── */
+
+    @media (max-width: 768px) {
+      html, body {
+        height: 100dvh;
+        overflow: hidden;
+      }
+
+      .shell {
+        height: 100dvh;
+        overflow: hidden;
+      }
+
+      .brand {
+        position: static;
+        padding: 1.25rem 1.5rem 0;
+        font-size: 1.4rem;
+      }
+
+      .layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+        gap: 0;
+        padding: 0;
+      }
+
+      .left-panel {
+        flex-direction: column;
+        min-width: 0;
+      }
+
+      .watermark {
+        display: none;
+      }
+
+      .search-tray {
+        margin-top: 0;
+        padding: 1rem 1.25rem;
+        max-width: 100%;
+        border-radius: 0;
+        box-shadow: none;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .search-tray .search-input {
+        font-size: 0.95rem;
+      }
+
+      .controls-row {
+        padding: 0.75rem 0 0;
+      }
+
+      .right-panel {
+        position: relative;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      .nav-arrow {
+        width: 2.75rem;
+        height: 2.75rem;
+        min-width: 44px;
+        min-height: 44px;
+      }
+
+      .nav-arrow.left  { left:  0.25rem; }
+      .nav-arrow.right { right: 0.25rem; }
+
+      .word-surface {
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+        border-bottom: none;
+        padding: 1rem;
+        flex: 1;
+        overflow: hidden;
+      }
+
+      .page-indicator {
+        padding-top: 1rem;
+      }
+
+      .page-dot {
+        width: 0.5rem;
+        height: 0.5rem;
+      }
+
+      footer {
+        position: sticky;
+        bottom: 0;
+        z-index: 20;
+        height: 3rem;
+      }
+
+      footer .footer-link.about {
+        display: none;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="shell">
-    <h1 class="brand">Synonymicon</h1>
+    <h1 class="brand" id="brand" role="button" tabindex="0">Synonymicon</h1>
 
     <main class="layout">
       <!-- ─────────── LEFT PANEL ─────────── -->
@@ -735,7 +839,7 @@
 
     <footer>
       <button id="theme-button" class="footer-link" type="button">lumen</button>
-      <button class="footer-link" type="button">about</button>
+      <button class="footer-link about" type="button">about</button>
     </footer>
   </div>
 
@@ -1109,6 +1213,19 @@
     // ────────────────────────────────────────────────────────────
     searchInput.addEventListener("input", debouncedSearch);
 
+    // ────────────────────────────────────────────────────────────
+    // Reset to empty state
+    // ────────────────────────────────────────────────────────────
+    function resetToEmpty() {
+      searchInput.value = "";
+      lastSearchedWord = "";
+      results = [];
+      currentPage = 0;
+      if (abortController) abortController.abort();
+      history.replaceState(null, "", window.location.pathname);
+      render();
+    }
+
     searchInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         e.preventDefault();
@@ -1117,6 +1234,8 @@
         if (word) {
           lastSearchedWord = word;
           fetchSynonyms(word);
+        } else {
+          resetToEmpty();
         }
       }
     });
@@ -1129,6 +1248,11 @@
         fetchSynonyms(word);
       }
     });
+
+    // Brand click — reset to empty state
+    const brand = document.getElementById("brand");
+    brand.addEventListener("click", resetToEmpty);
+    brand.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") resetToEmpty(); });
 
     // ────────────────────────────────────────────────────────────
     // Frequency dropdown

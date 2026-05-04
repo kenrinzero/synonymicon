@@ -20,6 +20,18 @@ Not a vocabulary learning tool. Not a definitions-first tool — definitions are
 - `static/` — frontend files (`index.html`; CSS and JS inline in the same file)
 - `.venv/` — Python venv (gitignored)
 
+### Mobile layout (≤768px)
+Single breakpoint at `max-width: 768px`:
+- `.layout` switches to `grid-template-columns: 1fr; grid-template-rows: auto 1fr; gap: 0`
+- `.left-panel` gets `flex-direction: column; min-width: 0`
+- Search tray: full-width, `border-radius: 0`, box-shadow removed, `border-bottom: 1px solid var(--border)` only
+- Watermark `&` hidden
+- `.control-button` uses `flex: 0 0 auto` (auto-width, not fixed 8rem) so three controls fit on narrow viewports
+- Nav arrows repositioned inside surface edges; `.nav-arrow.left { left: 0.25rem }`, `.nav-arrow.right { right: 0.25rem }`
+- Footer: `position: sticky; bottom: 0; z-index: 20`; about button hidden via `footer .footer-link.about { display: none }`
+- `100dvh` used instead of `100vh` on `html, body, .shell` to handle mobile browser chrome
+- `overflow: hidden` on `.layout`, `.right-panel`, `.word-surface`, `.columns-grid` to prevent content overflow on small viewports
+
 ## Themes
 Three themes cycled via a footer button, persisted in localStorage. Cycle order: lumen → penumbra → umbra → lumen.
 
