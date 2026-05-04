@@ -163,7 +163,7 @@
       z-index: 1;
       align-self: center;
       width: 100%;
-      max-width: 28rem;
+      max-width: 32rem;
       margin-top: 18vh;
       padding: 1rem;
       background: var(--surface);
@@ -181,6 +181,7 @@
       border: 1px solid var(--border);
       border-radius: var(--radius-inner);
       box-shadow: var(--shadow-subtle);
+      width: 100%;
     }
 
     .search-icon {
@@ -233,17 +234,19 @@
     .controls-row {
       display: flex;
       align-items: stretch;
+      justify-content: space-between;
       gap: 0.75rem;
       padding: 1rem 0.5rem 0.25rem;
+      width: 100%;
     }
 
     .control-button {
-      flex: 1;
+      flex: 0 0 8rem;
+      min-width: 0;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 0.5rem;
-      padding: 0.25rem 0.25rem;
+      justify-content: center;
+      padding: 0.25rem;
       background: transparent;
       border: none;
       cursor: pointer;
@@ -251,6 +254,14 @@
       font-size: 0.9375rem;
       color: var(--foreground);
       transition: color var(--page-transition);
+    }
+
+    .control-button .text {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+      white-space: nowrap;
     }
 
     .control-button:hover {
@@ -285,6 +296,7 @@
       z-index: 30;
       overflow: hidden;
       display: none;
+      min-width: 7rem;
     }
 
     .dropdown-menu.open {
@@ -332,9 +344,13 @@
     .control-wrapper {
       position: relative;
       flex: 1;
+      min-width: 0;
+      display: flex;
+      justify-content: center;
     }
 
     .control-divider {
+      flex: 0 0 auto;
       width: 1px;
       background: var(--border);
     }
@@ -434,6 +450,10 @@
     .column-cell.empty {
       /* Reserved for future use; currently not rendered. */
       display: none;
+    }
+
+    .column-cell.span-all {
+      grid-column: 1 / -1;
     }
 
     .column-inner {
@@ -670,22 +690,24 @@
 
           <div class="controls-row">
             <div class="control-wrapper">
-              <button class="control-button" type="button">
-                <span><span class="label">corpus: </span><span class="value">wordfreq</span></span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="m6 9 6 6 6-6"/>
-                </svg>
+              <button id="corpus-button" class="control-button" type="button">
+                <span class="text"><span class="label">corpus:</span><span id="corpus-value" class="value">wordfreq</span></span>
               </button>
+              <div id="corpus-menu" class="dropdown-menu"></div>
             </div>
             <div class="control-divider"></div>
             <div class="control-wrapper">
               <button id="freq-button" class="control-button" type="button">
-                <span><span class="label">frequency: </span><span id="freq-value" class="value">all</span></span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="m6 9 6 6 6-6"/>
-                </svg>
+                <span class="text"><span class="label">frequency:</span><span id="freq-value" class="value">all</span></span>
               </button>
               <div id="freq-menu" class="dropdown-menu"></div>
+            </div>
+            <div class="control-divider"></div>
+            <div class="control-wrapper">
+              <button id="pos-button" class="control-button" type="button">
+                <span class="text"><span class="label">pos:</span><span id="pos-value" class="value">all</span></span>
+              </button>
+              <div id="pos-menu" class="dropdown-menu"></div>
             </div>
           </div>
         </section>
@@ -742,12 +764,22 @@
       absurd:   "~150k+",
     };
 
+    const POS_TIERS = [
+      { label: "all",       value: "all" },
+      { label: "noun",      value: "noun" },
+      { label: "verb",      value: "verb" },
+      { label: "adjective", value: "adj" },
+      { label: "adverb",    value: "adv" },
+    ];
+
     // ────────────────────────────────────────────────────────────
     // State
     // ────────────────────────────────────────────────────────────
     let results = [];
     let currentPage = 0;
     let selectedTiers = new Set(["all"]);
+    let selectedPos = new Set(["all"]);
+    let selectedCorpus = "wordfreq";
     let lastSearchedWord = "";
     let isLoading = false;
 
@@ -764,6 +796,12 @@
     const freqButton = document.getElementById("freq-button");
     const freqValue = document.getElementById("freq-value");
     const freqMenu = document.getElementById("freq-menu");
+    const posButton = document.getElementById("pos-button");
+    const posValue = document.getElementById("pos-value");
+    const posMenu = document.getElementById("pos-menu");
+    const corpusButton = document.getElementById("corpus-button");
+    const corpusValue = document.getElementById("corpus-value");
+    const corpusMenu = document.getElementById("corpus-menu");
 
     // ────────────────────────────────────────────────────────────
     // Layout math
@@ -892,9 +930,9 @@
       return div;
     }
 
-    function renderErrorState(message) {
+    function renderErrorState(message, isValidation = false) {
       const div = document.createElement("div");
-      div.className = "state-message error";
+      div.className = "state-message" + (isValidation ? "" : " error");
       div.textContent = message;
       return div;
     }
@@ -933,11 +971,14 @@
       if (isLoading) {
         // Loading dot is managed separately; grid stays empty
       } else if (pageColumns.length === 0) {
-        grid.appendChild(renderEmptyState(
+        const cell = document.createElement("div");
+        cell.className = "column-cell span-all";
+        cell.appendChild(renderEmptyState(
           lastSearchedWord
             ? "no synonyms found in this band — try a wider frequency"
             : "begin with a word"
         ));
+        grid.appendChild(cell);
       } else {
         let prevBand = null;
         // Determine the band of the last entry on the previous page
@@ -1013,7 +1054,10 @@
       try {
         const url = `/synonyms?word=${encodeURIComponent(word)}&tier=${encodeURIComponent(tierParam)}`;
         const res = await fetch(url, { signal: abortController.signal });
-        if (!res.ok) throw new Error(res.status);
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || res.status);
+        }
         const data = await res.json();
         results = data;
         currentPage = 0;
@@ -1024,7 +1068,14 @@
         grid.innerHTML = "";
         grid.classList.remove("with-peek");
         grid.classList.add("no-peek");
-        grid.appendChild(renderErrorState("something went wrong — check the backend log"));
+        const cols = getColumnsPerPage();
+        grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+        grid.style.width = "100%";
+        const cell = document.createElement("div");
+        cell.className = "column-cell span-all";
+        const isValidation = err.message && err.message.includes("single-word");
+        cell.appendChild(renderErrorState(err.message || "something went wrong — check the backend log", isValidation));
+        grid.appendChild(cell);
         renderIndicator(0);
         renderNavArrows(0);
         setLoading(false);
@@ -1156,6 +1207,128 @@
 
     document.addEventListener("click", () => {
       freqMenu.classList.remove("open");
+    });
+
+    // ────────────────────────────────────────────────────────────
+    // Corpus dropdown (single-select)
+    // ────────────────────────────────────────────────────────────
+    const CORPUS_OPTIONS = [
+      { label: "wordfreq",      value: "wordfreq" },
+      { label: "Google Ngram",  value: "google-ngram" },
+      { label: "OpenSubtitles", value: "opensubtitles" },
+      { label: "Wikipedia",     value: "wikipedia" },
+      { label: "Twitter",       value: "twitter" },
+      { label: "Reddit",        value: "reddit" },
+      { label: "COCA",          value: "coca" },
+      { label: "BNC",           value: "bnc" },
+    ];
+
+    function buildCorpusMenu() {
+      corpusMenu.innerHTML = "";
+      CORPUS_OPTIONS.forEach(opt => {
+        const item = document.createElement("button");
+        item.className = "dropdown-item" + (selectedCorpus === opt.value ? " checked" : "");
+        item.type = "button";
+        item.innerHTML = `<svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg><span>${opt.label}</span>`;
+        item.addEventListener("click", () => {
+          selectedCorpus = opt.value;
+          corpusValue.textContent = opt.label;
+          buildCorpusMenu();
+          corpusMenu.classList.remove("open");
+        });
+        corpusMenu.appendChild(item);
+      });
+    }
+
+    corpusButton.addEventListener("click", (e) => {
+      e.stopPropagation();
+      corpusMenu.classList.toggle("open");
+    });
+
+    document.addEventListener("click", () => {
+      corpusMenu.classList.remove("open");
+    });
+
+    buildCorpusMenu();
+
+    // ────────────────────────────────────────────────────────────
+    // POS dropdown
+    // ────────────────────────────────────────────────────────────
+    function updatePosLabel() {
+      if (selectedPos.has("all")) {
+        posValue.textContent = "all";
+      } else if (selectedPos.size === 1) {
+        const val = Array.from(selectedPos)[0];
+        const tier = POS_TIERS.find(t => t.value === val);
+        posValue.textContent = tier ? tier.label : val;
+      } else {
+        posValue.textContent = "custom";
+      }
+    }
+
+    function buildPosMenu() {
+      posMenu.innerHTML = "";
+
+      // "all" option
+      const allItem = document.createElement("button");
+      allItem.className = "dropdown-item" + (selectedPos.has("all") ? " checked" : "");
+      allItem.type = "button";
+      allItem.innerHTML = `<svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg><span>all</span>`;
+      allItem.addEventListener("click", () => {
+        selectedPos.clear();
+        selectedPos.add("all");
+        refreshPosMenu();
+        posMenu.classList.remove("open");
+      });
+      posMenu.appendChild(allItem);
+
+      // Divider
+      const divider = document.createElement("div");
+      divider.className = "dropdown-divider";
+      posMenu.appendChild(divider);
+
+      // POS options
+      POS_TIERS.filter(t => t.value !== "all").forEach(t => {
+        const item = document.createElement("button");
+        item.className = "dropdown-item" + (selectedPos.has(t.value) ? " checked" : "");
+        item.type = "button";
+        item.innerHTML = `<svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg><span>${t.label}</span>`;
+        item.addEventListener("click", () => {
+          if (selectedPos.has(t.value)) {
+            selectedPos.delete(t.value);
+            if (selectedPos.size === 0) selectedPos.add("all");
+          } else {
+            selectedPos.delete("all");
+            selectedPos.add(t.value);
+          }
+          refreshPosMenu();
+          posMenu.classList.remove("open");
+        });
+        posMenu.appendChild(item);
+      });
+    }
+
+    const POS_TYPES = POS_TIERS.filter(t => t.value !== "all").map(t => t.value);
+
+    function refreshPosMenu() {
+      if (POS_TYPES.every(t => selectedPos.has(t))) {
+        selectedPos.clear();
+        selectedPos.add("all");
+      }
+      posMenu.innerHTML = "";
+      buildPosMenu();
+      updatePosLabel();
+    }
+
+    posButton.addEventListener("click", (e) => {
+      e.stopPropagation();
+      posMenu.classList.toggle("open");
+    });
+
+    buildPosMenu();
+
+    document.addEventListener("click", () => {
+      posMenu.classList.remove("open");
     });
 
     // ────────────────────────────────────────────────────────────

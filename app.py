@@ -229,6 +229,8 @@ def synonyms():
     word = request.args.get('word')
     if not word:
         return jsonify({'error': 'missing required parameter: word'}), 400
+    if ' ' in word or '_' in word:
+        return jsonify({'error': 'single-word searches only; phrases are not yet supported'}), 400
 
     tier = request.args.get('tier')
     min_raw = request.args.get('min')
