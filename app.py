@@ -35,22 +35,49 @@ DEFINITION_CACHE = {}
 
 POS_MAP = {'noun': 'n', 'verb': 'v', 'adj': 'a', 'adv': 'r'}
 
-def get_wordnet_candidates(word, pos_filter=None):
-    """Union of lemmas across all synsets for the input word, excluding the input itself.
+
+def get_wordnet_candidates(words, pos_filter=None):
+    """Collect lemmas from WordNet synsets for one or more words.
 
     Args:
-        word: the input word
-        pos_filter: optional set of POS tags (e.g., {'n', 'v'}) to restrict synsets.
-                   If None, all POS tags are included.
+        words: a single word string OR a list of up to 2 words (for phrases).
+               Examples: "run" or ["be", "given"]
+        pos_filter: optional set of POS tags to restrict synsets.
     """
+    if isinstance(words, str):
+        words = [words]
+
+    # Collect synset lemmas per word
+    word_synsets = {}
+    for w in words:
+        synsets = list(wordnet.synsets(w))
+        word_synsets[w] = synsets
+
     candidates = set()
-    for synset in wordnet.synsets(word):
-        if pos_filter and synset.pos() not in pos_filter:
-            continue
-        for lemma in synset.lemmas():
-            name = lemma.name().replace('_', ' ')
-            if name.lower() != word.lower():
-                candidates.add(name)
+
+    for w in words:
+        for synset in word_synsets[w]:
+            if pos_filter and synset.pos() not in pos_filter:
+                continue
+            for lemma in synset.lemmas():
+                name = lemma.name().replace('_', ' ')
+                # Exclude the exact phrase match itself
+                if name.lower() != ' '.join(words).lower():
+                    candidates.add(name)
+
+    # For 2-word phrases, filter candidates to those that contain at least
+    # one of the phrase words (and are not just random multi-word results)
+    if len(words) == 2:
+        w1, w2 = words[0].lower(), words[1].lower()
+        filtered = set()
+        for c in candidates:
+            cl = c.lower()
+            # Keep candidates that contain either phrase word as a token,
+            # or are exactly the two words in either order
+            if w1 in cl.split() or w2 in cl.split() or cl == f"{w1} {w2}" or cl == f"{w2} {w1}":
+                filtered.add(c)
+        candidates = filtered
+
     return candidates
 
 
@@ -158,15 +185,18 @@ def get_band_label(zipf):
         return 'absurd'
 
 
-def get_blended_results(word, tier=None, zmin=None, zmax=None, pos_filter=None):
+def get_blended_results(word, tier=None, zmin=None, zmax=None, pos_filter=None, phrase_words=None):
     """Merge WordNet + fastText candidates with blended scoring.
 
     Args:
         pos_filter: optional set of POS tags to restrict WordNet candidates.
                    fastText candidates are included only if they also appear
                    in the WordNet results with a matching POS.
+        phrase_words: optional list of words for multi-word phrase lookups.
+                      If None, falls back to [word].
     """
-    wn_candidates = get_wordnet_candidates(word, pos_filter)
+    wn_words = phrase_words if phrase_words else [word]
+    wn_candidates = get_wordnet_candidates(wn_words, pos_filter)
     ft_candidates = get_fasttext_candidates(word)
 
     # Build scored dict: {lowercase_word: (display_word, score)}
@@ -189,7 +219,7 @@ def get_blended_results(word, tier=None, zmin=None, zmax=None, pos_filter=None):
     else:
         raise ValueError("Either tier or both zmin/zmax must be provided")
 
-    morph = get_morphological_variants(word)
+    morph = get_morphological_variants(word.lower())
     results = []
     for key, (display, score) in scored.items():
         if key in morph or len(key) < 3 or '--' in key or re.search(r'(.)\1{2,}', key) or not key[0].isalpha():
@@ -206,9 +236,10 @@ def get_blended_results(word, tier=None, zmin=None, zmax=None, pos_filter=None):
     return [(w, z) for w, z, _ in results]
 
 
-def get_blended_results_multi(word, ranges, pos_filter=None):
+def get_blended_results_multi(word, ranges, pos_filter=None, phrase_words=None):
     """Merge WordNet + fastText candidates with blended scoring, filtering across multiple ranges."""
-    wn_candidates = get_wordnet_candidates(word, pos_filter)
+    wn_words = phrase_words if phrase_words else [word]
+    wn_candidates = get_wordnet_candidates(wn_words, pos_filter)
     ft_candidates = get_fasttext_candidates(word)
 
     scored = {}
@@ -220,7 +251,7 @@ def get_blended_results_multi(word, ranges, pos_filter=None):
         if key not in scored and cosine >= FASTTEXT_COSINE_CUTOFF and not pos_filter:
             scored[key] = (w.replace('_', ' '), cosine)
 
-    morph = get_morphological_variants(word)
+    morph = get_morphological_variants(word.lower())
     results = []
     for key, (display, score) in scored.items():
         if key in morph or len(key) < 3 or '--' in key or re.search(r'(.)\1{2,}', key) or not key[0].isalpha():
@@ -246,8 +277,9 @@ def synonyms():
     word = request.args.get('word')
     if not word:
         return jsonify({'error': 'missing required parameter: word'}), 400
-    if ' ' in word or '_' in word:
-        return jsonify({'error': 'single-word searches only; phrases are not yet supported'}), 400
+    words_in_phrase = word.split(' ')
+    if len(words_in_phrase) > 2:
+        return jsonify({'error': 'phrases of up to 2 words are supported'}), 400
 
     tier = request.args.get('tier')
     min_raw = request.args.get('min')
@@ -278,7 +310,7 @@ def synonyms():
             zmax = float(max_raw)
         except ValueError:
             return jsonify({'error': 'min and max must be numeric'}), 400
-        results = get_blended_results(word, zmin=zmin, zmax=zmax, pos_filter=pos_filter)
+        results = get_blended_results(word, zmin=zmin, zmax=zmax, pos_filter=pos_filter, phrase_words=words_in_phrase)
     elif has_min or has_max:
         # Exactly one supplied → 400
         return jsonify({'error': 'both min and max must be provided together'}), 400
@@ -294,10 +326,10 @@ def synonyms():
                     'available_tiers': list(TIERS.keys()),
                 }), 400
         if len(tier_list) == 1:
-            results = get_blended_results(word, tier=tier_list[0], pos_filter=pos_filter)
+            results = get_blended_results(word, tier=tier_list[0], pos_filter=pos_filter, phrase_words=words_in_phrase)
         else:
             ranges = [TIERS[t] for t in tier_list]
-            results = get_blended_results_multi(word, ranges, pos_filter=pos_filter)
+            results = get_blended_results_multi(word, ranges, pos_filter=pos_filter, phrase_words=words_in_phrase)
 
     words = [w for w, z in results]
     with ThreadPoolExecutor(max_workers=10) as pool:

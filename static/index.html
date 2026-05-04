@@ -1076,12 +1076,13 @@
         // Loading dot is managed separately; grid stays empty
       } else if (pageColumns.length === 0) {
         const cell = document.createElement("div");
-        cell.className = "column-cell span-all";
-        cell.appendChild(renderEmptyState(
-          lastSearchedWord
-            ? "no synonyms found in this band — try a wider frequency"
-            : "begin with a word"
-        ));
+        cell.style.cssText = "grid-column:1/-1;display:grid;place-items:center;";
+        const msg = document.createElement("span");
+        msg.style.cssText = "padding:2.5rem 2rem;font-family:var(--font-serif);font-style:italic;font-size:1.0625rem;color:var(--foreground-muted);text-align:center;";
+        msg.textContent = lastSearchedWord
+          ? "no synonyms found in this band — try a wider frequency"
+          : "begin with a word";
+        cell.appendChild(msg);
         grid.appendChild(cell);
       } else {
         let prevBand = null;
