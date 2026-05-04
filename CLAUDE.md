@@ -90,10 +90,14 @@ Blended single list, no source labels exposed in UI:
 - **Sort: Zipf descending, score descending as tiebreaker.** 
 
 ## API
-`GET /synonyms?word=<x>&tier=<t>` — returns JSON list of `{word, zipf, definition, band}`.
+`GET /synonyms?word=<x>&tier=<t>&pos=<p>` — returns JSON list of `{word, zipf, definition, band}`.
 Optional: `min` and `max` (Zipf floats) for advanced mode.
 
 Valid `tier` values: `all` (default), `common`, `uncommon`, `rare`, `exotic`, `absurd`. Comma-separated lists accepted (`tier=uncommon,rare`).
+
+Valid `pos` values: `all` (default), `noun`, `verb`, `adj`, `adv`. Multi-select: `noun,verb`. When `pos` is specified, WordNet candidates are filtered to matching POS synsets; fastText standalone candidates are excluded (fastText has no POS metadata). Unknown `pos` values return 400 with `available_pos` list.
+
+Phrases of up to 2 words supported (e.g., `word=hard+work`). 3+ words return 400.
 
 ## Performance
 - **Definition cache:** `DEFINITION_CACHE` at module scope caches full `get_definition` results. Repeated lookups across queries are instant.
@@ -111,12 +115,14 @@ The left panel contains, top to bottom:
 
 1. **Serif "Synonymicon" wordmark** in the top-left corner — just the word in a serif face, 1.75rem (Session 7b bump). No logo glyph, no ornament.
 2. **Integrated search/control surface**, anchored at the upper-third (margin-top ~18vh), structured as a single rounded "tray" containing:
-   - Inner search card (input field with magnifying-glass icon and submit-arrow button). Placeholder text: `discover` (Session 7b shortened from `discover rare synonyms`).
-   - Two flat dropdowns sitting on the tray below the search card: `corpus: wordfreq` and `frequency: <current>`.
+   - Inner search card (input field with magnifying-glass icon and submit-arrow button). Placeholder text: `discover`.
+   - Three flat dropdowns sitting on the tray below the search card: `corpus: <current>`, `frequency: <current>`, and `pos: <current>`.
    - The tray, search card, and dropdowns form three layered visual surfaces — outer tray (`--surface`), inner search card (`--column`), and the bare dropdowns on the tray.
 3. **Watermark `&` glyph** in the bottom-left, ~18rem, ~7% opacity, fills the otherwise-empty lower portion of the panel.
 
 Frequency dropdown is checkbox-style with multi-select. `all` is mutually exclusive with bands; selecting any band deselects `all`. Empty selection reverts to `all`. Selecting all individual bands collapses to `all`. Trigger label shows `all` when all selected, band name when one selected, `custom` when multiple selected. A divider separates `all` from the band options.
+
+POS dropdown mirrors the frequency pattern: `all` mutually exclusive with individual POSes. Trigger label shows `all` / POS name / `custom`. Selecting all collapses to `all`.
 
 | UI label | `tier` param |
 |---|---|
@@ -129,7 +135,7 @@ Frequency dropdown is checkbox-style with multi-select. `all` is mutually exclus
 
 Display labels (`10k-30k`, etc.) are display-only; backend filters on Zipf.
 
-The corpus dropdown (`corpus: wordfreq`) is visual-only with a single option, in anticipation of additional corpora post-MVP.
+The corpus dropdown is visual-only with 8 options (wordfreq, Google Ngram, OpenSubtitles, Wikipedia, Twitter, Reddit, COCA, BNC); backend wiring is post-MVP.
 
 ## Frontend results surface (right panel)
 The right panel holds one rounded "word surface" containing column cells per page. Pagination is page-based, not continuous-scroll.
@@ -143,7 +149,9 @@ The right panel holds one rounded "word surface" containing column cells per pag
 
 ### Within columns
 - **Entry layout:** serif headword (~2rem, slight letterspacing), small superscript Zipf badge, italic serif definition (~1rem, muted color, ~1.35 line-height).
-- **Pivot-on-click:** clicking a result headword fires a new search for that word. `cursor: pointer` is the only visual affordance — no underlines, no link styling. Page resets to 1 on pivot. Browser history via `history.pushState({word, tiers})`; `popstate` listener restores word + tier on back/forward. On page load, `?word=...&tier=...` params are read and auto-searched (bookmarkable queries).
+- **Pivot-on-click:** clicking a result headword fires a new search for that word. `cursor: pointer` is the only visual affordance — no underlines, no link styling. Page resets to 1 on pivot. Browser history via `history.pushState({word, tiers, pos})`; `popstate` listener restores word + tier + pos on back/forward. On page load, `?word=...&tier=...&pos=...` params are read and auto-searched (bookmarkable queries).
+
+**Brand wordmark reset.** The "Synonymicon" wordmark is clickable and resets to the empty state. Enter key with an empty search field also triggers the reset. `history.replaceState` clears the URL so refreshing on the empty state stays there.
 - **Hover state:** color deepens on both headword and definition. No movement, no scale, no shadow change.
 - **`[undefined]` rendering:** italic, lighter muted color than regular definitions.
 - **Band separators (Session 7b):** when results span multiple bands and the current page contains a band transition, a small-caps muted header with hairline divider above appears inline at the position of the transition. Cross-column tracking via `prevBand` state through the render loop ensures a continuing band does not get a redundant header at the top of a new column. A new band starting at the top of a column does get a header.
@@ -153,9 +161,9 @@ The right panel holds one rounded "word surface" containing column cells per pag
 - **Inner column cells:** `--column` background, smaller radius (`--radius-inner`, 1.5rem), subtle shadow, hairline border. Use `background-clip: padding-box` to avoid corner-leak rendering artifacts. Scrollable vertically (`overflow-y: auto`) so long band sections don't clip.
 - The two-level layering (outer surface + inner cells) is intentional and earns its complexity by making the column boundaries legible without dividers.
 
-## Frontend states (Session 7b)
+## Frontend states
 - **Loading:** 6px dot, 1.2s pulse animation, anchored bottom-center of the word surface.
-- **Empty:** contextual message — `begin with a word` when no query has been issued, `no synonyms found in this band` when a query returned zero results in the selected tier.
+- **Empty:** contextual message — `begin with a word` when no query has been issued, `no synonyms found in this band` when a query returned zero results in the selected tier. Empty state renders directly on the `--surface` tray background without a `.column-cell` wrapper — the message cell uses `grid-column: 1/-1; display: grid; place-items: center`.
 - **Error:** muted red message in the word surface area.
 
 ## Run commands
@@ -172,7 +180,6 @@ Dev server on localhost:5000. Use `--no-reload` because the fastText model loads
 - Languages other than English
 - A fourth or fifth ad-hoc theme — three is the committed set; further themes need a deliberate session
 - `simple / advanced` mode toggle in the UI (backend `min`/`max` params remain supported; UI exposure deferred indefinitely)
-- Part-of-speech filtering (post-MVP)
 - Any database, ORM, or persistent storage
 - Additional frequency corpora beyond wordfreq (slated for post-current-cycle, not this MVP scope)
 
