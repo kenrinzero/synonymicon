@@ -80,24 +80,6 @@
       --error:             #c07070;
     }
 
-    /* ── Theme: synonymicon (vintage) ── */
-    body[data-theme="synonymicon"] {
-      --background:        #e8dcc8;
-      --surface:           #d9cbae;
-      --column:            #eee4d0;
-      --foreground:        #3a3024;
-      --foreground-muted:  rgba(58, 48, 36, 0.65);
-      --foreground-faint:  rgba(58, 48, 36, 0.40);
-      --border:            rgba(58, 48, 36, 0.12);
-      --border-strong:     rgba(58, 48, 36, 0.22);
-      --shadow-soft:       0 8px 32px -8px rgba(60, 45, 20, 0.12),
-                           0 2px 8px -2px rgba(60, 45, 20, 0.06);
-      --shadow-subtle:     0 1px 4px rgba(60, 45, 20, 0.05);
-      --watermark:         rgba(58, 48, 36, 0.06);
-      --footer-bg:         rgba(217, 203, 174, 0.5);
-      --error:             #8c4545;
-    }
-
     * {
       box-sizing: border-box;
       margin: 0;
@@ -310,7 +292,9 @@
     }
 
     .dropdown-item {
-      display: block;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
       width: 100%;
       padding: 0.5rem 0.75rem;
       background: transparent;
@@ -327,8 +311,22 @@
       background: var(--surface);
     }
 
-    .dropdown-item.active {
-      font-weight: 500;
+    .dropdown-item .check-icon {
+      width: 1rem;
+      height: 1rem;
+      flex-shrink: 0;
+      color: var(--foreground-muted);
+      opacity: 0;
+    }
+
+    .dropdown-item.checked .check-icon {
+      opacity: 1;
+    }
+
+    .dropdown-divider {
+      height: 1px;
+      margin: 0.25rem 0.75rem;
+      background: var(--border);
     }
 
     .control-wrapper {
@@ -411,14 +409,11 @@
     }
 
     .columns-grid.with-peek {
-      /* 4 columns; col 4 bleeds ~36px past the surface's overflow:hidden */
-      grid-template-columns: 1fr 1fr 1fr 1fr;
-      width: calc(133.333% - 4rem);
+      /* grid-template-columns and width set inline by JS for responsive column count */
     }
 
     .columns-grid.no-peek {
-      grid-template-columns: 1fr 1fr 1fr;
-      width: 100%;
+      /* grid-template-columns and width set inline by JS for responsive column count */
     }
 
     @keyframes page-in {
@@ -432,7 +427,8 @@
       border: 1px solid var(--border);
       border-radius: var(--radius-inner);
       box-shadow: var(--shadow-subtle);
-      overflow: hidden;
+      overflow-y: auto;
+      overflow-x: hidden;
     }
 
     .column-cell.empty {
@@ -446,7 +442,6 @@
       display: flex;
       flex-direction: column;
       gap: 2rem;
-      overflow: hidden;
     }
 
     /* ────────────────────────────────────────────────────────── */
@@ -468,6 +463,7 @@
       letter-spacing: -0.01em;
       color: var(--foreground-muted);
       transition: color var(--page-transition);
+      cursor: pointer;
     }
 
     .entry:hover .entry-headword {
@@ -725,20 +721,21 @@
     // ────────────────────────────────────────────────────────────
     // Constants
     // ────────────────────────────────────────────────────────────
-    const COLUMNS_PER_PAGE = 3;
     const ITEM_HEIGHT_PX = 130;
     const COLUMN_PADDING_PX = 80;
     const INDICATOR_RESERVE_PX = 50;
 
     const FREQUENCY_TIERS = [
       { label: "all",      value: "all" },
+      { label: "common",   value: "common" },
       { label: "10k–30k",  value: "uncommon" },
       { label: "30k–80k",  value: "rare" },
       { label: "80k–150k", value: "exotic" },
-      { label: "150k+",         value: "absurd" },
+      { label: "150k+",    value: "absurd" },
     ];
 
     const BAND_DISPLAY = {
+      common:   "~0–10k",
       uncommon: "~10k–30k",
       rare:     "~30k–80k",
       exotic:   "~80k–150k",
@@ -750,7 +747,7 @@
     // ────────────────────────────────────────────────────────────
     let results = [];
     let currentPage = 0;
-    let currentTier = "all";
+    let selectedTiers = new Set(["all"]);
     let lastSearchedWord = "";
     let isLoading = false;
 
@@ -771,6 +768,13 @@
     // ────────────────────────────────────────────────────────────
     // Layout math
     // ────────────────────────────────────────────────────────────
+    function getColumnsPerPage() {
+      const w = window.innerWidth;
+      if (w >= 1150) return 3;
+      if (w >= 800)  return 2;
+      return 1;
+    }
+
     function calculateItemsPerColumn() {
       if (!wordSurface) return 5;
       const surfaceHeight = wordSurface.clientHeight;
@@ -814,6 +818,8 @@
         headword.appendChild(zipf);
       }
 
+      headword.addEventListener("click", () => pivotToWord(entry.word));
+
       const def = document.createElement("p");
       def.className = "entry-def";
       if (!entry.definition || entry.definition === "[undefined]") {
@@ -850,7 +856,7 @@
 
       let lastBand = prevBand;
       entries.forEach(e => {
-        if (currentTier === "all" && e.band !== lastBand) {
+        if (e.band !== lastBand) {
           inner.appendChild(renderBandSeparator(e.band));
           lastBand = e.band;
         }
@@ -897,21 +903,32 @@
     // Render — main
     // ────────────────────────────────────────────────────────────
     function render() {
+      const colsPerPage = getColumnsPerPage();
       const itemsPerCol = calculateItemsPerColumn();
       const allColumns = chunkIntoColumns(results, itemsPerCol);
-      const pages = chunkIntoPages(allColumns, COLUMNS_PER_PAGE);
+      const pages = chunkIntoPages(allColumns, colsPerPage);
 
       if (currentPage >= pages.length) currentPage = pages.length - 1;
       if (currentPage < 0) currentPage = 0;
 
       const pageColumns = pages[currentPage] || [];
       const isLastPage = currentPage === pages.length - 1;
-      const showPeek = !isLastPage && pages.length > 1;
+      const showPeek = !isLastPage && pages.length > 1 && colsPerPage > 1;
 
       grid.innerHTML = "";
       grid.classList.remove("with-peek", "no-peek");
       void grid.offsetWidth;
-      grid.classList.add(showPeek ? "with-peek" : "no-peek");
+
+      if (showPeek) {
+        grid.classList.add("with-peek");
+        const totalCols = colsPerPage + 1;
+        grid.style.gridTemplateColumns = `repeat(${totalCols}, 1fr)`;
+        grid.style.width = `${(totalCols / colsPerPage) * 100}%`;
+      } else {
+        grid.classList.add("no-peek");
+        grid.style.gridTemplateColumns = `repeat(${colsPerPage}, 1fr)`;
+        grid.style.width = "100%";
+      }
 
       if (isLoading) {
         // Loading dot is managed separately; grid stays empty
@@ -982,13 +999,19 @@
     let abortController = null;
     let debounceTimer = null;
 
-    async function fetchSynonyms(word) {
+    async function fetchSynonyms(word, pushState = true) {
       if (abortController) abortController.abort();
       abortController = new AbortController();
       setLoading(true);
 
+      const tierParam = Array.from(selectedTiers).join(",");
+      if (pushState) {
+        const params = new URLSearchParams({ word, tier: tierParam });
+        history.pushState({ word, tiers: tierParam }, "", `?${params}`);
+      }
+
       try {
-        const url = `/synonyms?word=${encodeURIComponent(word)}&tier=${encodeURIComponent(currentTier)}`;
+        const url = `/synonyms?word=${encodeURIComponent(word)}&tier=${encodeURIComponent(tierParam)}`;
         const res = await fetch(url, { signal: abortController.signal });
         if (!res.ok) throw new Error(res.status);
         const data = await res.json();
@@ -1012,21 +1035,22 @@
       render();
     }
 
+    function pivotToWord(word) {
+      searchInput.value = word;
+      lastSearchedWord = word;
+      currentPage = 0;
+      fetchSynonyms(word, true);
+    }
+
     function debouncedSearch() {
       const word = searchInput.value.trim();
       clearTimeout(debounceTimer);
       if (abortController) abortController.abort();
 
-      if (!word) {
-        lastSearchedWord = "";
-        results = [];
-        currentPage = 0;
-        render();
-        return;
-      }
+      if (!word) return;
 
       lastSearchedWord = word;
-      debounceTimer = setTimeout(() => fetchSynonyms(word), 250);
+      debounceTimer = setTimeout(() => fetchSynonyms(word, false), 250);
     }
 
     // ────────────────────────────────────────────────────────────
@@ -1058,24 +1082,71 @@
     // ────────────────────────────────────────────────────────────
     // Frequency dropdown
     // ────────────────────────────────────────────────────────────
+    function updateFreqLabel() {
+      if (selectedTiers.has("all")) {
+        freqValue.textContent = "all";
+      } else if (selectedTiers.size === 1) {
+        const val = Array.from(selectedTiers)[0];
+        const tier = FREQUENCY_TIERS.find(t => t.value === val);
+        freqValue.textContent = tier ? tier.label : val;
+      } else {
+        freqValue.textContent = "custom";
+      }
+    }
+
     function buildFreqMenu() {
-      FREQUENCY_TIERS.forEach(t => {
+      // "all" option
+      const allItem = document.createElement("button");
+      allItem.className = "dropdown-item" + (selectedTiers.has("all") ? " checked" : "");
+      allItem.type = "button";
+      allItem.innerHTML = `<svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg><span>all</span>`;
+      allItem.addEventListener("click", () => {
+        selectedTiers.clear();
+        selectedTiers.add("all");
+        refreshFreqMenu();
+        freqMenu.classList.remove("open");
+        if (lastSearchedWord) fetchSynonyms(lastSearchedWord, false);
+      });
+      freqMenu.appendChild(allItem);
+
+      // Divider
+      const divider = document.createElement("div");
+      divider.className = "dropdown-divider";
+      freqMenu.appendChild(divider);
+
+      // Band options
+      FREQUENCY_TIERS.filter(t => t.value !== "all").forEach(t => {
         const item = document.createElement("button");
-        item.className = "dropdown-item" + (t.value === currentTier ? " active" : "");
+        item.className = "dropdown-item" + (selectedTiers.has(t.value) ? " checked" : "");
         item.type = "button";
-        item.textContent = t.label;
+        item.innerHTML = `<svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg><span>${t.label}</span>`;
         item.addEventListener("click", () => {
-          currentTier = t.value;
-          freqValue.textContent = t.label;
-
-          freqMenu.querySelectorAll(".dropdown-item").forEach(el => el.classList.remove("active"));
-          item.classList.add("active");
+          if (selectedTiers.has(t.value)) {
+            selectedTiers.delete(t.value);
+            if (selectedTiers.size === 0) selectedTiers.add("all");
+          } else {
+            selectedTiers.delete("all");
+            selectedTiers.add(t.value);
+          }
+          refreshFreqMenu();
           freqMenu.classList.remove("open");
-
-          if (lastSearchedWord) fetchSynonyms(lastSearchedWord);
+          if (lastSearchedWord) fetchSynonyms(lastSearchedWord, false);
         });
         freqMenu.appendChild(item);
       });
+    }
+
+    const BAND_TIERS = FREQUENCY_TIERS.filter(t => t.value !== "all").map(t => t.value);
+
+    function refreshFreqMenu() {
+      // If all individual bands are selected, collapse to "all"
+      if (BAND_TIERS.every(t => selectedTiers.has(t))) {
+        selectedTiers.clear();
+        selectedTiers.add("all");
+      }
+      freqMenu.innerHTML = "";
+      buildFreqMenu();
+      updateFreqLabel();
     }
 
     freqButton.addEventListener("click", (e) => {
@@ -1095,37 +1166,74 @@
     });
 
     nextBtn.addEventListener("click", () => {
+      const colsPerPage = getColumnsPerPage();
       const itemsPerCol = calculateItemsPerColumn();
-      const totalPages = Math.ceil(chunkIntoColumns(results, itemsPerCol).length / COLUMNS_PER_PAGE);
+      const totalPages = Math.ceil(chunkIntoColumns(results, itemsPerCol).length / colsPerPage);
       if (currentPage < totalPages - 1) { currentPage++; render(); }
     });
 
-    let resizeRaf = null;
+    let resizeTimer = null;
     window.addEventListener("resize", () => {
-      if (resizeRaf) cancelAnimationFrame(resizeRaf);
-      resizeRaf = requestAnimationFrame(render);
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(render, 150);
+    });
+
+    window.addEventListener("popstate", (e) => {
+      const state = e.state;
+      if (state && state.word) {
+        searchInput.value = state.word;
+        lastSearchedWord = state.word;
+        if (state.tiers) {
+          selectedTiers = new Set(state.tiers.split(","));
+          refreshFreqMenu();
+        }
+        fetchSynonyms(state.word, false);
+      }
     });
 
     // ────────────────────────────────────────────────────────────
     // Theme
     // ────────────────────────────────────────────────────────────
-    const THEMES = ["lumen", "penumbra", "umbra", "synonymicon"];
-    let themeIndex = 0;
+    const THEMES = ["lumen", "penumbra", "umbra"];
+    let themeIndex = THEMES.indexOf(localStorage.getItem("theme") || "lumen");
+    if (themeIndex === -1) themeIndex = 0;
 
     const themeButton = document.getElementById("theme-button");
 
-    themeButton.addEventListener("click", () => {
-      themeIndex = (themeIndex + 1) % THEMES.length;
+    function applyTheme() {
       const theme = THEMES[themeIndex];
       document.body.dataset.theme = theme;
       themeButton.textContent = theme;
+      localStorage.setItem("theme", theme);
+    }
+
+    themeButton.addEventListener("click", () => {
+      themeIndex = (themeIndex + 1) % THEMES.length;
+      applyTheme();
     });
+
+    applyTheme();
 
     // ────────────────────────────────────────────────────────────
     // Init
     // ────────────────────────────────────────────────────────────
     buildFreqMenu();
-    render();
+
+    // Read URL params on load (bookmarkable queries + back/forward)
+    const initParams = new URLSearchParams(window.location.search);
+    const initWord = initParams.get("word");
+    const initTier = initParams.get("tier");
+    if (initWord) {
+      searchInput.value = initWord;
+      lastSearchedWord = initWord;
+      if (initTier) {
+        selectedTiers = new Set(initTier.split(","));
+        refreshFreqMenu();
+      }
+      fetchSynonyms(initWord, false);
+    } else {
+      render();
+    }
     searchInput.focus();
   </script>
 </body>

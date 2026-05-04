@@ -1,7 +1,9 @@
 import json
+import re
 import gensim.downloader as api
 import requests
 from bs4 import BeautifulSoup
+from concurrent.futures import ThreadPoolExecutor
 from flask import Flask, request, jsonify
 from nltk.corpus import wordnet
 from wordfreq import zipf_frequency
@@ -9,7 +11,8 @@ from wordfreq import zipf_frequency
 app = Flask(__name__)
 
 TIERS = {
-    'all':      (float('-inf'), 4.0),
+    'all':      (float('-inf'), float('inf')),
+    'common':   (4.0, float('inf')),
     'uncommon': (3.0, 4.0),
     'rare':     (2.0, 3.0),
     'exotic':   (1.0, 2.0),
@@ -18,6 +21,7 @@ TIERS = {
 COMMON_FLOOR = 4.0
 WORDNET_SCORE = 1.5
 FASTTEXT_COSINE_CUTOFF = 0.65
+MAX_DEFINITION_LENGTH = 200
 
 FASTTEXT_MODEL = api.load('fasttext-wiki-news-subwords-300')
 
@@ -26,6 +30,7 @@ with open('data/websters1913.json') as f:
 
 WIKTIONARY_CACHE = {}
 WIKTIONARY_HEADERS = {'User-Agent': 'Synonymicon/0.1 (dev; contact: local)'}
+DEFINITION_CACHE = {}
 
 
 def get_wordnet_candidates(word):
@@ -40,10 +45,32 @@ def get_wordnet_candidates(word):
 
 
 def get_fasttext_candidates(word, n=100):
+    wl = word.lower()
     try:
-        return [(w, score) for w, score in FASTTEXT_MODEL.most_similar(word, topn=n) if w != word]
+        return [(w, score) for w, score in FASTTEXT_MODEL.most_similar(word, topn=n) if w.lower() != wl]
     except KeyError:
         return []
+
+
+def get_morphological_variants(word):
+    """Generate common morphological variants of a word for filtering."""
+    w = word.lower()
+    variants = {w}
+    if w.endswith('e'):
+        variants.add(w[:-1] + 'ing')
+        variants.add(w[:-1] + 'ed')
+    else:
+        variants.add(w + 's')
+        variants.add(w + 'ed')
+        variants.add(w + 'ing')
+        variants.add(w + 'er')
+        variants.add(w + 'es')
+    # Double consonant: stop -> stopped, stopping
+    if len(w) >= 3 and w[-1] not in 'aeiou' and w[-2] in 'aeiou' and w[-3] not in 'aeiou':
+        variants.add(w + w[-1] + 'ed')
+        variants.add(w + w[-1] + 'ing')
+        variants.add(w + w[-1] + 'er')
+    return variants
 
 
 def get_wiktionary_definition(word):
@@ -88,15 +115,22 @@ def get_wordnet_gloss(word):
 
 
 def get_definition(word):
+    key = word.lower()
+    if key in DEFINITION_CACHE:
+        return DEFINITION_CACHE[key]
     d = get_wiktionary_definition(word)
     if d:
+        DEFINITION_CACHE[key] = d
         return d
     d = get_websters_definition(word)
     if d:
+        DEFINITION_CACHE[key] = d
         return d
     d = get_wordnet_gloss(word)
     if d:
+        DEFINITION_CACHE[key] = d
         return d
+    DEFINITION_CACHE[key] = "[undefined]"
     return "[undefined]"
 
 
@@ -138,13 +172,49 @@ def get_blended_results(word, tier=None, zmin=None, zmax=None):
     else:
         raise ValueError("Either tier or both zmin/zmax must be provided")
 
+    morph = get_morphological_variants(word)
     results = []
     for key, (display, score) in scored.items():
+        if key in morph or len(key) < 3 or '--' in key or re.search(r'(.)\1{2,}', key) or not key[0].isalpha():
+            continue
+        cleaned = key.rstrip('-.')
+        if cleaned in morph:
+            continue
         z = zipf_frequency(key, 'en')
-        if z < COMMON_FLOOR and lo <= z < hi:
+        if lo <= z < hi:
             results.append((display, z, score))
 
     # Sort: Zipf descending (rarer first), score descending as tiebreaker
+    results.sort(key=lambda x: (-x[1], -x[2]))
+    return [(w, z) for w, z, _ in results]
+
+
+def get_blended_results_multi(word, ranges):
+    """Merge WordNet + fastText candidates with blended scoring, filtering across multiple ranges."""
+    wn_candidates = get_wordnet_candidates(word)
+    ft_candidates = get_fasttext_candidates(word)
+
+    scored = {}
+    for c in wn_candidates:
+        key = c.lower()
+        scored[key] = (c, WORDNET_SCORE)
+    for w, cosine in ft_candidates:
+        key = w.lower()
+        if key not in scored and cosine >= FASTTEXT_COSINE_CUTOFF:
+            scored[key] = (w.replace('_', ' '), cosine)
+
+    morph = get_morphological_variants(word)
+    results = []
+    for key, (display, score) in scored.items():
+        if key in morph or len(key) < 3 or '--' in key or re.search(r'(.)\1{2,}', key) or not key[0].isalpha():
+            continue
+        cleaned = key.rstrip('-.')
+        if cleaned in morph:
+            continue
+        z = zipf_frequency(key, 'en')
+        if any(lo <= z < hi for lo, hi in ranges):
+            results.append((display, z, score))
+
     results.sort(key=lambda x: (-x[1], -x[2]))
     return [(w, z) for w, z, _ in results]
 
@@ -180,19 +250,34 @@ def synonyms():
         # Exactly one supplied → 400
         return jsonify({'error': 'both min and max must be provided together'}), 400
     else:
-        # Neither min nor max → use tier
+        # Neither min nor max → use tier (single or comma-separated)
         if tier is None:
             return jsonify({'error': 'missing required parameter: tier (or min/max)'}), 400
-        if tier not in TIERS:
-            return jsonify({
-                'error': f'unknown tier: {tier}',
-                'available_tiers': list(TIERS.keys()),
-            }), 400
-        results = get_blended_results(word, tier=tier)
+        tier_list = [t.strip() for t in tier.split(',')]
+        for t in tier_list:
+            if t not in TIERS:
+                return jsonify({
+                    'error': f'unknown tier: {t}',
+                    'available_tiers': list(TIERS.keys()),
+                }), 400
+        if len(tier_list) == 1:
+            results = get_blended_results(word, tier=tier_list[0])
+        else:
+            ranges = [TIERS[t] for t in tier_list]
+            results = get_blended_results_multi(word, ranges)
+
+    words = [w for w, z in results]
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        definitions = list(pool.map(get_definition, words))
+
+    def truncate(d):
+        if d == "[undefined]" or len(d) <= MAX_DEFINITION_LENGTH:
+            return d
+        return d[:MAX_DEFINITION_LENGTH].rsplit(' ', 1)[0] + '…'
 
     return jsonify([
-        {'word': w, 'zipf': z, 'definition': get_definition(w), 'band': get_band_label(z)}
-        for w, z in results
+        {'word': w, 'zipf': z, 'definition': truncate(d), 'band': get_band_label(z)}
+        for (w, z), d in zip(results, definitions)
     ])
 
 
