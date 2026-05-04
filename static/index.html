@@ -1150,13 +1150,14 @@
       setLoading(true);
 
       const tierParam = Array.from(selectedTiers).join(",");
+      const posParam = Array.from(selectedPos).join(",");
       if (pushState) {
-        const params = new URLSearchParams({ word, tier: tierParam });
-        history.pushState({ word, tiers: tierParam }, "", `?${params}`);
+        const params = new URLSearchParams({ word, tier: tierParam, pos: posParam });
+        history.pushState({ word, tiers: tierParam, pos: posParam }, "", `?${params}`);
       }
 
       try {
-        const url = `/synonyms?word=${encodeURIComponent(word)}&tier=${encodeURIComponent(tierParam)}`;
+        const url = `/synonyms?word=${encodeURIComponent(word)}&tier=${encodeURIComponent(tierParam)}&pos=${encodeURIComponent(posParam)}`;
         const res = await fetch(url, { signal: abortController.signal });
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
@@ -1403,6 +1404,7 @@
         selectedPos.add("all");
         refreshPosMenu();
         posMenu.classList.remove("open");
+        if (lastSearchedWord) fetchSynonyms(lastSearchedWord, false);
       });
       posMenu.appendChild(allItem);
 
@@ -1427,6 +1429,7 @@
           }
           refreshPosMenu();
           posMenu.classList.remove("open");
+          if (lastSearchedWord) fetchSynonyms(lastSearchedWord, false);
         });
         posMenu.appendChild(item);
       });
@@ -1484,6 +1487,10 @@
           selectedTiers = new Set(state.tiers.split(","));
           refreshFreqMenu();
         }
+        if (state.pos) {
+          selectedPos = new Set(state.pos.split(","));
+          refreshPosMenu();
+        }
         fetchSynonyms(state.word, false);
       }
     });
@@ -1520,12 +1527,17 @@
     const initParams = new URLSearchParams(window.location.search);
     const initWord = initParams.get("word");
     const initTier = initParams.get("tier");
+    const initPos = initParams.get("pos");
     if (initWord) {
       searchInput.value = initWord;
       lastSearchedWord = initWord;
       if (initTier) {
         selectedTiers = new Set(initTier.split(","));
         refreshFreqMenu();
+      }
+      if (initPos) {
+        selectedPos = new Set(initPos.split(","));
+        refreshPosMenu();
       }
       fetchSynonyms(initWord, false);
     } else {

@@ -33,10 +33,20 @@ WIKTIONARY_HEADERS = {'User-Agent': 'Synonymicon/0.1 (dev; contact: local)'}
 DEFINITION_CACHE = {}
 
 
-def get_wordnet_candidates(word):
-    """Union of lemmas across all synsets for the input word, excluding the input itself."""
+POS_MAP = {'noun': 'n', 'verb': 'v', 'adj': 'a', 'adv': 'r'}
+
+def get_wordnet_candidates(word, pos_filter=None):
+    """Union of lemmas across all synsets for the input word, excluding the input itself.
+
+    Args:
+        word: the input word
+        pos_filter: optional set of POS tags (e.g., {'n', 'v'}) to restrict synsets.
+                   If None, all POS tags are included.
+    """
     candidates = set()
     for synset in wordnet.synsets(word):
+        if pos_filter and synset.pos() not in pos_filter:
+            continue
         for lemma in synset.lemmas():
             name = lemma.name().replace('_', ' ')
             if name.lower() != word.lower():
@@ -148,10 +158,15 @@ def get_band_label(zipf):
         return 'absurd'
 
 
-def get_blended_results(word, tier=None, zmin=None, zmax=None):
-    """Merge WordNet + fastText candidates with blended scoring."""
-    # Gather candidates from both sources
-    wn_candidates = get_wordnet_candidates(word)
+def get_blended_results(word, tier=None, zmin=None, zmax=None, pos_filter=None):
+    """Merge WordNet + fastText candidates with blended scoring.
+
+    Args:
+        pos_filter: optional set of POS tags to restrict WordNet candidates.
+                   fastText candidates are included only if they also appear
+                   in the WordNet results with a matching POS.
+    """
+    wn_candidates = get_wordnet_candidates(word, pos_filter)
     ft_candidates = get_fasttext_candidates(word)
 
     # Build scored dict: {lowercase_word: (display_word, score)}
@@ -161,7 +176,9 @@ def get_blended_results(word, tier=None, zmin=None, zmax=None):
         scored[key] = (c, WORDNET_SCORE)
     for w, cosine in ft_candidates:
         key = w.lower()
-        if key not in scored and cosine >= FASTTEXT_COSINE_CUTOFF:
+        # When POS filter is active, only include fastText candidates that
+        # also appeared in WordNet (already in scored); skip standalone fastText matches.
+        if key not in scored and cosine >= FASTTEXT_COSINE_CUTOFF and not pos_filter:
             scored[key] = (w.replace('_', ' '), cosine)
 
     # Frequency filter
@@ -189,9 +206,9 @@ def get_blended_results(word, tier=None, zmin=None, zmax=None):
     return [(w, z) for w, z, _ in results]
 
 
-def get_blended_results_multi(word, ranges):
+def get_blended_results_multi(word, ranges, pos_filter=None):
     """Merge WordNet + fastText candidates with blended scoring, filtering across multiple ranges."""
-    wn_candidates = get_wordnet_candidates(word)
+    wn_candidates = get_wordnet_candidates(word, pos_filter)
     ft_candidates = get_fasttext_candidates(word)
 
     scored = {}
@@ -200,7 +217,7 @@ def get_blended_results_multi(word, ranges):
         scored[key] = (c, WORDNET_SCORE)
     for w, cosine in ft_candidates:
         key = w.lower()
-        if key not in scored and cosine >= FASTTEXT_COSINE_CUTOFF:
+        if key not in scored and cosine >= FASTTEXT_COSINE_CUTOFF and not pos_filter:
             scored[key] = (w.replace('_', ' '), cosine)
 
     morph = get_morphological_variants(word)
@@ -235,6 +252,20 @@ def synonyms():
     tier = request.args.get('tier')
     min_raw = request.args.get('min')
     max_raw = request.args.get('max')
+    pos_raw = request.args.get('pos')
+
+    VALID_POS = {'all', 'noun', 'verb', 'adj', 'adv'}
+    pos_filter = None
+    if pos_raw is not None:
+        pos_list = [p.strip() for p in pos_raw.split(',')]
+        for p in pos_list:
+            if p not in VALID_POS:
+                return jsonify({
+                    'error': f'unknown pos: {p}',
+                    'available_pos': list(VALID_POS),
+                }), 400
+        if 'all' not in pos_list:
+            pos_filter = {POS_MAP[p] for p in pos_list}
 
     has_min = min_raw is not None
     has_max = max_raw is not None
@@ -247,7 +278,7 @@ def synonyms():
             zmax = float(max_raw)
         except ValueError:
             return jsonify({'error': 'min and max must be numeric'}), 400
-        results = get_blended_results(word, zmin=zmin, zmax=zmax)
+        results = get_blended_results(word, zmin=zmin, zmax=zmax, pos_filter=pos_filter)
     elif has_min or has_max:
         # Exactly one supplied → 400
         return jsonify({'error': 'both min and max must be provided together'}), 400
@@ -263,10 +294,10 @@ def synonyms():
                     'available_tiers': list(TIERS.keys()),
                 }), 400
         if len(tier_list) == 1:
-            results = get_blended_results(word, tier=tier_list[0])
+            results = get_blended_results(word, tier=tier_list[0], pos_filter=pos_filter)
         else:
             ranges = [TIERS[t] for t in tier_list]
-            results = get_blended_results_multi(word, ranges)
+            results = get_blended_results_multi(word, ranges, pos_filter=pos_filter)
 
     words = [w for w, z in results]
     with ThreadPoolExecutor(max_workers=10) as pool:
