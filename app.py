@@ -43,6 +43,7 @@ GUTEN_ZIPF = {}  # {word_lower: zipf}
 WIKIPEDIA_ZIPF = {}  # {word_lower: zipf}
 LEIPZIG_NEWS_ZIPF = {}  # {word_lower: zipf}
 LEIPZIG_WEB_COM_ZIPF = {}  # {word_lower: zipf}
+LEIPZIG_WEB_UK_ZIPF = {}  # {word_lower: zipf}
 BNC_ZIPF = {}       # {word_lower: zipf}
 BNC_TOTAL = 85714226  # total tokens in BNC
 
@@ -71,6 +72,20 @@ def _load_leipzig_web_com():
                 count = int(parts[1])
                 zipf_val = math.log10(count) + 1.83
                 LEIPZIG_WEB_COM_ZIPF[word.lower()] = zipf_val
+            except ValueError:
+                continue
+
+def _load_leipzig_web_uk():
+    with open('data/leipzig_web_uk_2018.txt') as f:
+        for line in f:
+            parts = line.split('\t')
+            if len(parts) != 4:
+                continue
+            try:
+                word = parts[2]
+                count = int(parts[1])
+                zipf_val = math.log10(count) + 1.76
+                LEIPZIG_WEB_UK_ZIPF[word.lower()] = zipf_val
             except ValueError:
                 continue
 
@@ -209,11 +224,14 @@ def get_zipf(word, corpus='wordfreq'):
         return LEIPZIG_NEWS_ZIPF.get(wl)
     if corpus == 'leipzig_web_com':
         return LEIPZIG_WEB_COM_ZIPF.get(wl)
+    if corpus == 'leipzig_web_uk':
+        return LEIPZIG_WEB_UK_ZIPF.get(wl)
     return wordfreq_zipf(wl, 'en')
 
 # Load corpora at startup
 _load_leipzig_news()
 _load_leipzig_web_com()
+_load_leipzig_web_uk()
 _load_opensubtitles()
 _load_gutenberg()
 _load_kaggle()
@@ -486,7 +504,7 @@ def synonyms():
     corpus_raw = request.args.get('corpus', 'wordfreq')
 
     VALID_POS = {'all', 'noun', 'verb', 'adj', 'adv'}
-    VALID_CORPORA = {'wordfreq', 'subtlex', 'bnc', 'google_1grams', 'wikipedia', 'kaggle', 'opensubtitles', 'gutenberg', 'leipzig_news', 'leipzig_web_com'}
+    VALID_CORPORA = {'wordfreq', 'subtlex', 'bnc', 'google_1grams', 'wikipedia', 'kaggle', 'opensubtitles', 'gutenberg', 'leipzig_news', 'leipzig_web_com', 'leipzig_web_uk'}
     if corpus_raw not in VALID_CORPORA:
         return jsonify({
             'error': f'unknown corpus: {corpus_raw}',
