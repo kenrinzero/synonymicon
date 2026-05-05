@@ -12,11 +12,14 @@ Not a vocabulary learning tool. Not a definitions-first tool — definitions are
 - **NLTK WordNet** — primary synonym source (synset lemmas)
 - **fastText** (fasttext-wiki-news-subwords-300 via gensim) — secondary/fallback synonym source. Note: the gensim distribution is KeyedVectors (pretrained vectors only), not the full FastText model — OOV inputs raise KeyError and must be caught. WordNet still covers OOV cases.
 - **Definition fallback chain:** Wiktionary API → Webster's 1913 (local JSON at `data/websters1913.json`) → WordNet gloss → `"[undefined]"` (literal string, rendered in italics). Wiktionary REST API requires a descriptive `User-Agent` header per Wikimedia policy — requests without one return 403 or get rate-limited. Use `requests` for fetches and `beautifulsoup4` (`bs4`) for HTML stripping.
+- **Corpus frequency tables** — `data/subtlex_us.xlsx` (SUBTLEX-US, Brysbaert & New 2009) and `data/bnc_lemmas.txt` (BNC, Kilgarriff) loaded at startup alongside wordfreq. `get_zipf(word, corpus)` dispatches to the selected source. SUBTLEX-US Zipf values are pre-computed in the spreadsheet; BNC Zipf is computed as `log10(count × 1B / 85_714_226)` from raw lemma counts.
 - **Frontend:** single-page HTML/CSS/JS served from `static/`. Three themes cycled via footer button, persisted in localStorage. Right-heavier layout (38/62); integrated search/control surface on the left; single rounded word surface containing column cells on the right.
 
 ## Layout
 - `app.py` — Flask app, all backend logic
 - `data/websters1913.json` — Webster's 1913, loaded at startup
+- `data/subtlex_us.xlsx` — SUBTLEX-US frequency table (Brysbaert & New 2009), loaded at startup
+- `data/bnc_lemmas.txt` — BNC lemma frequency list (Kilgarriff), downloaded and loaded at startup
 - `static/` — frontend files (`index.html`; CSS and JS inline in the same file)
 - `.venv/` — Python venv (gitignored)
 
@@ -90,12 +93,16 @@ Blended single list, no source labels exposed in UI:
 - **Sort: Zipf descending, score descending as tiebreaker.** 
 
 ## API
-`GET /synonyms?word=<x>&tier=<t>&pos=<p>` — returns JSON list of `{word, zipf, definition, band}`.
+`GET /synonyms?word=<x>&tier=<t>&pos=<p>&corpus=<c>` — returns JSON list of `{word, zipf, definition, band}`.
 Optional: `min` and `max` (Zipf floats) for advanced mode.
 
 Valid `tier` values: `all` (default), `common`, `uncommon`, `rare`, `exotic`, `absurd`. Comma-separated lists accepted (`tier=uncommon,rare`).
 
 Valid `pos` values: `all` (default), `noun`, `verb`, `adj`, `adv`. Multi-select: `noun,verb`. When `pos` is specified, WordNet candidates are filtered to matching POS synsets; fastText standalone candidates are excluded (fastText has no POS metadata). Unknown `pos` values return 400 with `available_pos` list.
+
+Valid `corpus` values: `wordfreq` (default), `subtlex` (SUBTLEX-US film subtitles), `bnc` (British National Corpus, lemmatized). Controls which frequency table is used for Zipf filtering. Unknown values return 400 with `available_corpora` list.
+
+**BNC lemmatization:** BNC is a lemmatized corpus — `walk`, `walks`, `walked`, `walking` all collapse to the lemma `walk`. The query word is lemmatized via NLTK `WordNetLemmatizer` (noun form first, verb form as fallback) before BNC Zipf lookup.
 
 Phrases of up to 2 words supported (e.g., `word=hard+work`). 3+ words return 400.
 
@@ -135,7 +142,7 @@ POS dropdown mirrors the frequency pattern: `all` mutually exclusive with indivi
 
 Display labels (`10k-30k`, etc.) are display-only; backend filters on Zipf.
 
-The corpus dropdown is visual-only with 8 options (wordfreq, Google Ngram, OpenSubtitles, Wikipedia, Twitter, Reddit, COCA, BNC); backend wiring is post-MVP.
+The corpus dropdown has three options: `wordfreq` (general English internet-derived frequencies, default), `subtlex` (SUBTLEX-US film subtitle frequencies, Brysbaert & New 2009), and `bnc` (British National Corpus, lemmatized, Kilgarriff). Switching corpora re-filters results through the selected frequency table; tier boundaries (Zipf values) remain fixed — only the per-word Zipf value changes. Corpus selection is persisted in URL params (`?corpus=...`) and restored on back/forward navigation and page load.
 
 ## Frontend results surface (right panel)
 The right panel holds one rounded "word surface" containing column cells per page. Pagination is page-based, not continuous-scroll.
@@ -181,7 +188,6 @@ Dev server on localhost:5000. Use `--no-reload` because the fastText model loads
 - A fourth or fifth ad-hoc theme — three is the committed set; further themes need a deliberate session
 - `simple / advanced` mode toggle in the UI (backend `min`/`max` params remain supported; UI exposure deferred indefinitely)
 - Any database, ORM, or persistent storage
-- Additional frequency corpora beyond wordfreq (slated for post-current-cycle, not this MVP scope)
 
 ## Scope rails
 - Do not introduce a database. Ephemeral in-memory caches are fine; do not add persistent storage. (The definition cache is in-memory module-scope only.)

@@ -1152,13 +1152,14 @@
 
       const tierParam = Array.from(selectedTiers).join(",");
       const posParam = Array.from(selectedPos).join(",");
+      const corpusParam = selectedCorpus;
       if (pushState) {
-        const params = new URLSearchParams({ word, tier: tierParam, pos: posParam });
-        history.pushState({ word, tiers: tierParam, pos: posParam }, "", `?${params}`);
+        const params = new URLSearchParams({ word, tier: tierParam, pos: posParam, corpus: corpusParam });
+        history.pushState({ word, tiers: tierParam, pos: posParam, corpus: corpusParam }, "", `?${params}`);
       }
 
       try {
-        const url = `/synonyms?word=${encodeURIComponent(word)}&tier=${encodeURIComponent(tierParam)}&pos=${encodeURIComponent(posParam)}`;
+        const url = `/synonyms?word=${encodeURIComponent(word)}&tier=${encodeURIComponent(tierParam)}&pos=${encodeURIComponent(posParam)}&corpus=${encodeURIComponent(corpusParam)}`;
         const res = await fetch(url, { signal: abortController.signal });
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
@@ -1339,14 +1340,9 @@
     // Corpus dropdown (single-select)
     // ────────────────────────────────────────────────────────────
     const CORPUS_OPTIONS = [
-      { label: "wordfreq",      value: "wordfreq" },
-      { label: "Google Ngram",  value: "google-ngram" },
-      { label: "OpenSubtitles", value: "opensubtitles" },
-      { label: "Wikipedia",     value: "wikipedia" },
-      { label: "Twitter",       value: "twitter" },
-      { label: "Reddit",        value: "reddit" },
-      { label: "COCA",          value: "coca" },
-      { label: "BNC",           value: "bnc" },
+      { label: "wordfreq", value: "wordfreq" },
+      { label: "subtlex",  value: "subtlex" },
+      { label: "bnc",      value: "bnc" },
     ];
 
     function buildCorpusMenu() {
@@ -1492,6 +1488,11 @@
           selectedPos = new Set(state.pos.split(","));
           refreshPosMenu();
         }
+        if (state.corpus) {
+          selectedCorpus = state.corpus;
+          corpusValue.textContent = CORPUS_OPTIONS.find(o => o.value === selectedCorpus)?.label || selectedCorpus;
+          buildCorpusMenu();
+        }
         fetchSynonyms(state.word, false);
       }
     });
@@ -1529,6 +1530,7 @@
     const initWord = initParams.get("word");
     const initTier = initParams.get("tier");
     const initPos = initParams.get("pos");
+    const initCorpus = initParams.get("corpus");
     if (initWord) {
       searchInput.value = initWord;
       lastSearchedWord = initWord;
@@ -1539,6 +1541,11 @@
       if (initPos) {
         selectedPos = new Set(initPos.split(","));
         refreshPosMenu();
+      }
+      if (initCorpus) {
+        selectedCorpus = initCorpus;
+        corpusValue.textContent = CORPUS_OPTIONS.find(o => o.value === selectedCorpus)?.label || selectedCorpus;
+        buildCorpusMenu();
       }
       fetchSynonyms(initWord, false);
     } else {

@@ -1,12 +1,16 @@
 import json
+import math
+import openpyxl
 import re
-import gensim.downloader as api
+import urllib.request
 import requests
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor
 from flask import Flask, request, jsonify
+from gensim.downloader import load as fasttext_load
 from nltk.corpus import wordnet
-from wordfreq import zipf_frequency
+from nltk.stem import WordNetLemmatizer
+from wordfreq import zipf_frequency as wordfreq_zipf
 
 app = Flask(__name__)
 
@@ -23,10 +27,68 @@ WORDNET_SCORE = 1.5
 FASTTEXT_COSINE_CUTOFF = 0.65
 MAX_DEFINITION_LENGTH = 200
 
-FASTTEXT_MODEL = api.load('fasttext-wiki-news-subwords-300')
+FASTTEXT_MODEL = fasttext_load('fasttext-wiki-news-subwords-300')
 
 with open('data/websters1913.json') as f:
     WEBSTERS = {k.lower(): v for k, v in json.load(f).items()}
+
+# ── Corpus loaders ───────────────────────────────────────────────────────────
+
+SUBTLEX_ZIPF = {}  # {word_lower: zipf}
+BNC_ZIPF = {}       # {word_lower: zipf}
+BNC_TOTAL = 85714226  # total tokens in BNC
+
+def _load_subtlex():
+    wb = openpyxl.load_workbook('data/subtlex_us.xlsx', read_only=True, data_only=True)
+    ws = wb.active
+    for i, row in enumerate(ws.iter_rows(values_only=True)):
+        if i == 0:
+            continue  # skip header
+        word = row[0]
+        if not word or not isinstance(word, str):
+            continue
+        zipf_val = row[14]  # Zipf-value column (index 14)
+        if zipf_val is not None:
+            SUBTLEX_ZIPF[word.lower()] = float(zipf_val)
+    wb.close()
+
+def _load_bnc():
+    with open('data/bnc_lemmas.txt') as f:
+        for line in f:
+            parts = line.split()
+            if len(parts) < 4:
+                continue
+            freq, word, pos = int(parts[1]), parts[2], parts[3]
+            # Lemmatized: word is the lemma, strip POS tag variation
+            # BNC words are already lowercase; use lemma directly
+            zipf_val = math.log10(freq * (1_000_000_000 / BNC_TOTAL))
+            BNC_ZIPF[word.lower()] = zipf_val
+
+_LEMMATIZER = WordNetLemmatizer()
+
+def get_zipf(word, corpus='wordfreq'):
+    """Return Zipf frequency for a word from the selected corpus.
+
+    Args:
+        word: the word to look up.
+        corpus: 'wordfreq' (default), 'subtlex', or 'bnc'.
+    """
+    wl = word.lower()
+    if corpus == 'subtlex':
+        return SUBTLEX_ZIPF.get(wl)
+    if corpus == 'bnc':
+        # BNC is lemmatized — try noun lemma first, then verb lemma as fallback
+        lemma = _LEMMATIZER.lemmatize(wl)
+        z = BNC_ZIPF.get(lemma)
+        if z is None:
+            lemma = _LEMMATIZER.lemmatize(wl, 'v')
+            z = BNC_ZIPF.get(lemma)
+        return z
+    return wordfreq_zipf(wl, 'en')
+
+# Load corpora at startup
+_load_subtlex()
+_load_bnc()
 
 WIKTIONARY_CACHE = {}
 WIKTIONARY_HEADERS = {'User-Agent': 'Synonymicon/0.1 (dev; contact: local)'}
@@ -185,7 +247,7 @@ def get_band_label(zipf):
         return 'absurd'
 
 
-def get_blended_results(word, tier=None, zmin=None, zmax=None, pos_filter=None, phrase_words=None):
+def get_blended_results(word, tier=None, zmin=None, zmax=None, pos_filter=None, phrase_words=None, corpus='wordfreq'):
     """Merge WordNet + fastText candidates with blended scoring.
 
     Args:
@@ -194,6 +256,7 @@ def get_blended_results(word, tier=None, zmin=None, zmax=None, pos_filter=None, 
                    in the WordNet results with a matching POS.
         phrase_words: optional list of words for multi-word phrase lookups.
                       If None, falls back to [word].
+        corpus: 'wordfreq' (default) or 'subtlex'.
     """
     wn_words = phrase_words if phrase_words else [word]
     wn_candidates = get_wordnet_candidates(wn_words, pos_filter)
@@ -206,8 +269,6 @@ def get_blended_results(word, tier=None, zmin=None, zmax=None, pos_filter=None, 
         scored[key] = (c, WORDNET_SCORE)
     for w, cosine in ft_candidates:
         key = w.lower()
-        # When POS filter is active, only include fastText candidates that
-        # also appeared in WordNet (already in scored); skip standalone fastText matches.
         if key not in scored and cosine >= FASTTEXT_COSINE_CUTOFF and not pos_filter:
             scored[key] = (w.replace('_', ' '), cosine)
 
@@ -227,7 +288,10 @@ def get_blended_results(word, tier=None, zmin=None, zmax=None, pos_filter=None, 
         cleaned = key.rstrip('-.')
         if cleaned in morph:
             continue
-        z = zipf_frequency(key, 'en')
+        z = get_zipf(key, corpus)
+        # Skip words absent from the selected corpus
+        if z is None:
+            continue
         if lo <= z < hi:
             results.append((display, z, score))
 
@@ -236,7 +300,7 @@ def get_blended_results(word, tier=None, zmin=None, zmax=None, pos_filter=None, 
     return [(w, z) for w, z, _ in results]
 
 
-def get_blended_results_multi(word, ranges, pos_filter=None, phrase_words=None):
+def get_blended_results_multi(word, ranges, pos_filter=None, phrase_words=None, corpus='wordfreq'):
     """Merge WordNet + fastText candidates with blended scoring, filtering across multiple ranges."""
     wn_words = phrase_words if phrase_words else [word]
     wn_candidates = get_wordnet_candidates(wn_words, pos_filter)
@@ -259,7 +323,9 @@ def get_blended_results_multi(word, ranges, pos_filter=None, phrase_words=None):
         cleaned = key.rstrip('-.')
         if cleaned in morph:
             continue
-        z = zipf_frequency(key, 'en')
+        z = get_zipf(key, corpus)
+        if z is None:
+            continue
         if any(lo <= z < hi for lo, hi in ranges):
             results.append((display, z, score))
 
@@ -285,8 +351,15 @@ def synonyms():
     min_raw = request.args.get('min')
     max_raw = request.args.get('max')
     pos_raw = request.args.get('pos')
+    corpus_raw = request.args.get('corpus', 'wordfreq')
 
     VALID_POS = {'all', 'noun', 'verb', 'adj', 'adv'}
+    VALID_CORPORA = {'wordfreq', 'subtlex', 'bnc'}
+    if corpus_raw not in VALID_CORPORA:
+        return jsonify({
+            'error': f'unknown corpus: {corpus_raw}',
+            'available_corpora': list(VALID_CORPORA),
+        }), 400
     pos_filter = None
     if pos_raw is not None:
         pos_list = [p.strip() for p in pos_raw.split(',')]
@@ -310,7 +383,7 @@ def synonyms():
             zmax = float(max_raw)
         except ValueError:
             return jsonify({'error': 'min and max must be numeric'}), 400
-        results = get_blended_results(word, zmin=zmin, zmax=zmax, pos_filter=pos_filter, phrase_words=words_in_phrase)
+        results = get_blended_results(word, zmin=zmin, zmax=zmax, pos_filter=pos_filter, phrase_words=words_in_phrase, corpus=corpus_raw)
     elif has_min or has_max:
         # Exactly one supplied → 400
         return jsonify({'error': 'both min and max must be provided together'}), 400
@@ -326,10 +399,10 @@ def synonyms():
                     'available_tiers': list(TIERS.keys()),
                 }), 400
         if len(tier_list) == 1:
-            results = get_blended_results(word, tier=tier_list[0], pos_filter=pos_filter, phrase_words=words_in_phrase)
+            results = get_blended_results(word, tier=tier_list[0], pos_filter=pos_filter, phrase_words=words_in_phrase, corpus=corpus_raw)
         else:
             ranges = [TIERS[t] for t in tier_list]
-            results = get_blended_results_multi(word, ranges, pos_filter=pos_filter, phrase_words=words_in_phrase)
+            results = get_blended_results_multi(word, ranges, pos_filter=pos_filter, phrase_words=words_in_phrase, corpus=corpus_raw)
 
     words = [w for w, z in results]
     with ThreadPoolExecutor(max_workers=10) as pool:
