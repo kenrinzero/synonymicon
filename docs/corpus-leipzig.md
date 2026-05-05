@@ -3,26 +3,27 @@
 Three corpora from the Leipzig Corpora Collection, all in the same file format.
 
 ## Source
-- **7: News 2025** — `eng_news_2025_1M-words.txt`, 634,553 word types, 22.2M tokens, 1M sentences
-- **8: Web-Public COM 2018** — `eng-com_web-public_2018_1M-words.txt`, 480,158 word types
-- **9: Web-Public UK 2018** — `eng-uk_web-public_2018_1M-words.txt`, 444,718 word types
+- **7: News 2025** — `eng_news_2025_1M-words.txt`, 634,553 entries (579,559 unique words after dedup), 22.2M tokens, 1M sentences
+- **8: Web-Public COM 2018** — `eng-com_web-public_2018_1M-words.txt`, 480,158 entries
+- **9: Web-Public UK 2018** — `eng-uk_web-public_2018_1M-words.txt`, 444,718 entries
 
 Source: https://wortschatz.uni-leipzig.de/en/download
 
 ## Format
 
-**File:** `{prefix}-words.txt`  
-**Separator:** `\t` (tab)  
-**Columns:** `rank\tcount\tword\tzipf`
+**File:** `{prefix}-words.txt`
+**Separator:** `\t` (tab)
+**Columns:** `rank\tword\tcount` (3 columns)
 
 | col | name | example |
 |-----|------|---------|
 | 0 | rank | `101` |
-| 1 | count | `976578` |
-| 2 | word | `the` |
-| 3 | zipf | `21.87` ← pre-computed, not token-normalized, ignore |
+| 1 | word | `the` |
+| 2 | count | `976578` |
 
-The pre-computed Zipf in column 3 uses a source-internal normalization (source-specific, not token-count-normalized like wordfreq). Do not use it — compute Zipf from `count` using the formula below.
+The fourth column (zipf) in the original file uses source-internal normalization and is NOT used — Zipf is computed from `count`.
+
+**Duplicate words:** Files contain multiple entries for the same word in different cases (e.g., "the", "THe", "THE"). Use `setdefault` to keep the first (highest-count) occurrence per normalized word.
 
 ## Zipf Normalization
 
@@ -38,20 +39,13 @@ Offsets derived from: `offset = 7.73 - log10(count)`
 
 ## Loader Notes
 
-- Parse: `parts = line.split('\t')`, require exactly 4 parts, skip header/metadata lines
-- Count at `parts[1]`, word at `parts[2]`
-- Word is already lowercase in all three files
+- Parse: `parts = line.split('\t')`, require exactly 3 parts
+- Word at `parts[1]`, count at `parts[2].strip()`
+- Normalize word to lowercase
+- Use `setdefault` to handle duplicate word entries (keep first occurrence)
 - No lemmatization needed
-- Per-corpus offset stored in a dict, passed at load time
 
-## File Naming (proposed)
-
-After copying to `data/`:
-- `leipzig_news_2025.txt`
-- `leipzig_web_com_2018.txt`
-- `leipzig_web_uk_2018.txt`
-
-## API value naming (proposed)
+## API value naming
 
 - `leipzig_news`
 - `leipzig_web_com`
