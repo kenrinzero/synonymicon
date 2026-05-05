@@ -51,13 +51,14 @@ def _load_leipzig_news():
     with open('data/leipzig_news_2025.txt') as f:
         for line in f:
             parts = line.split('\t')
-            if len(parts) != 4:
+            if len(parts) != 3:
                 continue
             try:
-                word = parts[2]
-                count = int(parts[1])
+                word = parts[1].lower()
+                count = int(parts[2].strip())
                 zipf_val = math.log10(count) + 1.74
-                LEIPZIG_NEWS_ZIPF[word.lower()] = zipf_val
+                # Use setdefault to keep first (highest-count) occurrence per word
+                LEIPZIG_NEWS_ZIPF.setdefault(word, zipf_val)
             except ValueError:
                 continue
 
@@ -65,13 +66,13 @@ def _load_leipzig_web_com():
     with open('data/leipzig_web_com_2018.txt') as f:
         for line in f:
             parts = line.split('\t')
-            if len(parts) != 4:
+            if len(parts) != 3:
                 continue
             try:
-                word = parts[2]
-                count = int(parts[1])
+                word = parts[1].lower()
+                count = int(parts[2].strip())
                 zipf_val = math.log10(count) + 1.83
-                LEIPZIG_WEB_COM_ZIPF[word.lower()] = zipf_val
+                LEIPZIG_WEB_COM_ZIPF.setdefault(word, zipf_val)
             except ValueError:
                 continue
 
@@ -79,13 +80,13 @@ def _load_leipzig_web_uk():
     with open('data/leipzig_web_uk_2018.txt') as f:
         for line in f:
             parts = line.split('\t')
-            if len(parts) != 4:
+            if len(parts) != 3:
                 continue
             try:
-                word = parts[2]
-                count = int(parts[1])
+                word = parts[1].lower()
+                count = int(parts[2].strip())
                 zipf_val = math.log10(count) + 1.76
-                LEIPZIG_WEB_UK_ZIPF[word.lower()] = zipf_val
+                LEIPZIG_WEB_UK_ZIPF.setdefault(word, zipf_val)
             except ValueError:
                 continue
 
