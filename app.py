@@ -36,6 +36,9 @@ with open('data/websters1913.json') as f:
 
 SUBTLEX_ZIPF = {}  # {word_lower: zipf}
 GOOGLE_ZIPF = {}  # {word_lower: zipf}
+KAGGLE_ZIPF = {}  # {word_lower: zipf}
+HERMITD_ZIPF = {}  # {word_lower: zipf}
+SCRIPT_ZIPF = {}  # {word_lower: zipf}
 WIKIPEDIA_ZIPF = {}  # {word_lower: zipf}
 BNC_ZIPF = {}       # {word_lower: zipf}
 BNC_TOTAL = 85714226  # total tokens in BNC
@@ -51,6 +54,49 @@ def _load_wikipedia():
                 count = int(count_str)
                 zipf_val = math.log10(count) - 0.5
                 WIKIPEDIA_ZIPF[word.lower()] = zipf_val
+            except ValueError:
+                continue
+
+def _load_kaggle():
+    with open('data/kaggle_freq.csv') as f:
+        next(f)  # skip header: word,count
+        for line in f:
+            parts = line.strip().split(',')
+            if len(parts) != 2:
+                continue
+            word, count_str = parts[0], parts[1]
+            try:
+                count = int(count_str)
+                zipf_val = math.log10(count) + 3.0
+                KAGGLE_ZIPF[word.lower()] = zipf_val
+            except ValueError:
+                continue
+
+def _load_hermitdave():
+    with open('data/hermitdave_freq.txt') as f:
+        for line in f:
+            parts = line.split()
+            if len(parts) != 2:
+                continue
+            word, count_str = parts[0], parts[1]
+            try:
+                count = int(count_str)
+                zipf_val = math.log10(count) + 0.37
+                HERMITD_ZIPF[word.lower()] = zipf_val
+            except ValueError:
+                continue
+
+def _load_scriptsmith():
+    with open('data/scriptsmith_freq.txt') as f:
+        for line in f:
+            parts = line.split()
+            if len(parts) != 2:
+                continue
+            count_str, word = parts[0], parts[1]
+            try:
+                count = int(count_str)
+                zipf_val = math.log10(count) + 0.37
+                SCRIPT_ZIPF[word.lower()] = zipf_val
             except ValueError:
                 continue
 
@@ -122,9 +168,18 @@ def get_zipf(word, corpus='wordfreq'):
         return GOOGLE_ZIPF.get(wl)
     if corpus == 'wikipedia':
         return WIKIPEDIA_ZIPF.get(wl)
+    if corpus == 'kaggle':
+        return KAGGLE_ZIPF.get(wl)
+    if corpus == 'hermitdave':
+        return HERMITD_ZIPF.get(wl)
+    if corpus == 'scriptsmith':
+        return SCRIPT_ZIPF.get(wl)
     return wordfreq_zipf(wl, 'en')
 
 # Load corpora at startup
+_load_kaggle()
+_load_hermitdave()
+_load_scriptsmith()
 _load_wikipedia()
 _load_google()
 _load_subtlex()
@@ -394,7 +449,7 @@ def synonyms():
     corpus_raw = request.args.get('corpus', 'wordfreq')
 
     VALID_POS = {'all', 'noun', 'verb', 'adj', 'adv'}
-    VALID_CORPORA = {'wordfreq', 'subtlex', 'bnc', 'google_1grams', 'wikipedia'}
+    VALID_CORPORA = {'wordfreq', 'subtlex', 'bnc', 'google_1grams', 'wikipedia', 'kaggle', 'hermitdave', 'scriptsmith'}
     if corpus_raw not in VALID_CORPORA:
         return jsonify({
             'error': f'unknown corpus: {corpus_raw}',
