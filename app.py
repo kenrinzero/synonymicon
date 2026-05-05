@@ -37,8 +37,8 @@ with open('data/websters1913.json') as f:
 SUBTLEX_ZIPF = {}  # {word_lower: zipf}
 GOOGLE_ZIPF = {}  # {word_lower: zipf}
 KAGGLE_ZIPF = {}  # {word_lower: zipf}
-HERMITD_ZIPF = {}  # {word_lower: zipf}
-SCRIPT_ZIPF = {}  # {word_lower: zipf}
+OPENSUBS_ZIPF = {}  # {word_lower: zipf}
+GUTEN_ZIPF = {}  # {word_lower: zipf}
 WIKIPEDIA_ZIPF = {}  # {word_lower: zipf}
 BNC_ZIPF = {}       # {word_lower: zipf}
 BNC_TOTAL = 85714226  # total tokens in BNC
@@ -72,7 +72,7 @@ def _load_kaggle():
             except ValueError:
                 continue
 
-def _load_hermitdave():
+def _load_opensubtitles():
     with open('data/hermitdave_freq.txt') as f:
         for line in f:
             parts = line.split()
@@ -82,11 +82,11 @@ def _load_hermitdave():
             try:
                 count = int(count_str)
                 zipf_val = math.log10(count) + 0.37
-                HERMITD_ZIPF[word.lower()] = zipf_val
+                OPENSUBS_ZIPF[word.lower()] = zipf_val
             except ValueError:
                 continue
 
-def _load_scriptsmith():
+def _load_gutenberg():
     with open('data/scriptsmith_freq.txt') as f:
         for line in f:
             parts = line.split()
@@ -96,7 +96,7 @@ def _load_scriptsmith():
             try:
                 count = int(count_str)
                 zipf_val = math.log10(count) + 0.37
-                SCRIPT_ZIPF[word.lower()] = zipf_val
+                GUTEN_ZIPF[word.lower()] = zipf_val
             except ValueError:
                 continue
 
@@ -170,16 +170,16 @@ def get_zipf(word, corpus='wordfreq'):
         return WIKIPEDIA_ZIPF.get(wl)
     if corpus == 'kaggle':
         return KAGGLE_ZIPF.get(wl)
-    if corpus == 'hermitdave':
-        return HERMITD_ZIPF.get(wl)
-    if corpus == 'scriptsmith':
-        return SCRIPT_ZIPF.get(wl)
+    if corpus == 'opensubtitles':
+        return OPENSUBS_ZIPF.get(wl)
+    if corpus == 'gutenberg':
+        return GUTEN_ZIPF.get(wl)
     return wordfreq_zipf(wl, 'en')
 
 # Load corpora at startup
+_load_opensubtitles()
+_load_gutenberg()
 _load_kaggle()
-_load_hermitdave()
-_load_scriptsmith()
 _load_wikipedia()
 _load_google()
 _load_subtlex()
@@ -449,7 +449,7 @@ def synonyms():
     corpus_raw = request.args.get('corpus', 'wordfreq')
 
     VALID_POS = {'all', 'noun', 'verb', 'adj', 'adv'}
-    VALID_CORPORA = {'wordfreq', 'subtlex', 'bnc', 'google_1grams', 'wikipedia', 'kaggle', 'hermitdave', 'scriptsmith'}
+    VALID_CORPORA = {'wordfreq', 'subtlex', 'bnc', 'google_1grams', 'wikipedia', 'kaggle', 'opensubtitles', 'gutenberg'}
     if corpus_raw not in VALID_CORPORA:
         return jsonify({
             'error': f'unknown corpus: {corpus_raw}',
