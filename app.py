@@ -39,9 +39,25 @@ GOOGLE_ZIPF = {}  # {word_lower: zipf}
 KAGGLE_ZIPF = {}  # {word_lower: zipf}
 OPENSUBS_ZIPF = {}  # {word_lower: zipf}
 GUTEN_ZIPF = {}  # {word_lower: zipf}
+GUTEN_ZIPF = {}  # {word_lower: zipf}
 WIKIPEDIA_ZIPF = {}  # {word_lower: zipf}
+LEIPZIG_NEWS_ZIPF = {}  # {word_lower: zipf}
 BNC_ZIPF = {}       # {word_lower: zipf}
 BNC_TOTAL = 85714226  # total tokens in BNC
+
+def _load_leipzig_news():
+    with open('data/leipzig_news_2025.txt') as f:
+        for line in f:
+            parts = line.split('\t')
+            if len(parts) != 4:
+                continue
+            try:
+                word = parts[2]
+                count = int(parts[1])
+                zipf_val = math.log10(count) + 1.74
+                LEIPZIG_NEWS_ZIPF[word.lower()] = zipf_val
+            except ValueError:
+                continue
 
 def _load_wikipedia():
     with open('data/wikipedia_freq.txt') as f:
@@ -174,9 +190,12 @@ def get_zipf(word, corpus='wordfreq'):
         return OPENSUBS_ZIPF.get(wl)
     if corpus == 'gutenberg':
         return GUTEN_ZIPF.get(wl)
+    if corpus == 'leipzig_news':
+        return LEIPZIG_NEWS_ZIPF.get(wl)
     return wordfreq_zipf(wl, 'en')
 
 # Load corpora at startup
+_load_leipzig_news()
 _load_opensubtitles()
 _load_gutenberg()
 _load_kaggle()
@@ -449,7 +468,7 @@ def synonyms():
     corpus_raw = request.args.get('corpus', 'wordfreq')
 
     VALID_POS = {'all', 'noun', 'verb', 'adj', 'adv'}
-    VALID_CORPORA = {'wordfreq', 'subtlex', 'bnc', 'google_1grams', 'wikipedia', 'kaggle', 'opensubtitles', 'gutenberg'}
+    VALID_CORPORA = {'wordfreq', 'subtlex', 'bnc', 'google_1grams', 'wikipedia', 'kaggle', 'opensubtitles', 'gutenberg', 'leipzig_news'}
     if corpus_raw not in VALID_CORPORA:
         return jsonify({
             'error': f'unknown corpus: {corpus_raw}',
