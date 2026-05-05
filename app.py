@@ -35,8 +35,23 @@ with open('data/websters1913.json') as f:
 # ── Corpus loaders ───────────────────────────────────────────────────────────
 
 SUBTLEX_ZIPF = {}  # {word_lower: zipf}
+GOOGLE_ZIPF = {}  # {word_lower: zipf}
 BNC_ZIPF = {}       # {word_lower: zipf}
 BNC_TOTAL = 85714226  # total tokens in BNC
+
+def _load_google():
+    with open('data/google_1grams.txt') as f:
+        for line in f:
+            parts = line.split('\t')
+            if len(parts) != 2:
+                continue
+            word, count_str = parts[0], parts[1]
+            try:
+                count = int(count_str)
+                zipf_val = math.log10(count) + 3.0
+                GOOGLE_ZIPF[word.lower()] = zipf_val
+            except ValueError:
+                continue
 
 def _load_subtlex():
     wb = openpyxl.load_workbook('data/subtlex_us.xlsx', read_only=True, data_only=True)
@@ -53,16 +68,20 @@ def _load_subtlex():
     wb.close()
 
 def _load_bnc():
-    with open('data/bnc_lemmas.txt') as f:
+    with open('data/bnc_all.al') as f:
         for line in f:
             parts = line.split()
             if len(parts) < 4:
                 continue
-            freq, word, pos = int(parts[1]), parts[2], parts[3]
-            # Lemmatized: word is the lemma, strip POS tag variation
-            # BNC words are already lowercase; use lemma directly
-            zipf_val = math.log10(freq * (1_000_000_000 / BNC_TOTAL))
-            BNC_ZIPF[word.lower()] = zipf_val
+            try:
+                freq = int(parts[0])
+                word = parts[1]
+                # BNC is lemmatized — word is the lemma, use directly
+                zipf_val = math.log10(freq * (1_000_000_000 / BNC_TOTAL))
+                BNC_ZIPF[word.lower()] = zipf_val
+            except ValueError:
+                # Skip header lines (e.g. "100106029 !!WHOLE_CORPUS !!ANY 4124")
+                continue
 
 _LEMMATIZER = WordNetLemmatizer()
 
@@ -84,9 +103,12 @@ def get_zipf(word, corpus='wordfreq'):
             lemma = _LEMMATIZER.lemmatize(wl, 'v')
             z = BNC_ZIPF.get(lemma)
         return z
+    if corpus == 'google_1grams':
+        return GOOGLE_ZIPF.get(wl)
     return wordfreq_zipf(wl, 'en')
 
 # Load corpora at startup
+_load_google()
 _load_subtlex()
 _load_bnc()
 
@@ -354,7 +376,7 @@ def synonyms():
     corpus_raw = request.args.get('corpus', 'wordfreq')
 
     VALID_POS = {'all', 'noun', 'verb', 'adj', 'adv'}
-    VALID_CORPORA = {'wordfreq', 'subtlex', 'bnc'}
+    VALID_CORPORA = {'wordfreq', 'subtlex', 'bnc', 'google_1grams'}
     if corpus_raw not in VALID_CORPORA:
         return jsonify({
             'error': f'unknown corpus: {corpus_raw}',

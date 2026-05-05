@@ -12,14 +12,14 @@ Not a vocabulary learning tool. Not a definitions-first tool — definitions are
 - **NLTK WordNet** — primary synonym source (synset lemmas)
 - **fastText** (fasttext-wiki-news-subwords-300 via gensim) — secondary/fallback synonym source. Note: the gensim distribution is KeyedVectors (pretrained vectors only), not the full FastText model — OOV inputs raise KeyError and must be caught. WordNet still covers OOV cases.
 - **Definition fallback chain:** Wiktionary API → Webster's 1913 (local JSON at `data/websters1913.json`) → WordNet gloss → `"[undefined]"` (literal string, rendered in italics). Wiktionary REST API requires a descriptive `User-Agent` header per Wikimedia policy — requests without one return 403 or get rate-limited. Use `requests` for fetches and `beautifulsoup4` (`bs4`) for HTML stripping.
-- **Corpus frequency tables** — `data/subtlex_us.xlsx` (SUBTLEX-US, Brysbaert & New 2009) and `data/bnc_lemmas.txt` (BNC, Kilgarriff) loaded at startup alongside wordfreq. `get_zipf(word, corpus)` dispatches to the selected source. SUBTLEX-US Zipf values are pre-computed in the spreadsheet; BNC Zipf is computed as `log10(count × 1B / 85_714_226)` from raw lemma counts.
+- **Corpus frequency tables** — `data/subtlex_us.xlsx` (SUBTLEX-US, Brysbaert & New 2009), `data/bnc_all.al` (BNC, Kilgarriff, ~939k lemmas), and `data/google_1grams.txt` (Norvig Google 1-grams, 333k words) loaded at startup alongside wordfreq. `get_zipf(word, corpus)` dispatches to the selected source. SUBTLEX-US Zipf values are pre-computed in the spreadsheet; BNC Zipf is computed as `log10(count × 1B / 85_714_226)` from raw lemma counts; Google Zipf is `log10(count) + 3.0`.
 - **Frontend:** single-page HTML/CSS/JS served from `static/`. Three themes cycled via footer button, persisted in localStorage. Right-heavier layout (38/62); integrated search/control surface on the left; single rounded word surface containing column cells on the right.
 
 ## Layout
 - `app.py` — Flask app, all backend logic
 - `data/websters1913.json` — Webster's 1913, loaded at startup
 - `data/subtlex_us.xlsx` — SUBTLEX-US frequency table (Brysbaert & New 2009), loaded at startup
-- `data/bnc_lemmas.txt` — BNC lemma frequency list (Kilgarriff), downloaded and loaded at startup
+- `data/google_1grams.txt` — Norvig Google 1-grams (333k words), loaded at startup
 - `static/` — frontend files (`index.html`; CSS and JS inline in the same file)
 - `.venv/` — Python venv (gitignored)
 
@@ -100,7 +100,7 @@ Valid `tier` values: `all` (default), `common`, `uncommon`, `rare`, `exotic`, `a
 
 Valid `pos` values: `all` (default), `noun`, `verb`, `adj`, `adv`. Multi-select: `noun,verb`. When `pos` is specified, WordNet candidates are filtered to matching POS synsets; fastText standalone candidates are excluded (fastText has no POS metadata). Unknown `pos` values return 400 with `available_pos` list.
 
-Valid `corpus` values: `wordfreq` (default), `subtlex` (SUBTLEX-US film subtitles), `bnc` (British National Corpus, lemmatized). Controls which frequency table is used for Zipf filtering. Unknown values return 400 with `available_corpora` list.
+Valid `corpus` values: `wordfreq` (default), `subtlex` (SUBTLEX-US film subtitles), `bnc` (British National Corpus, lemmatized), `google_1grams` (Norvig Google 1-grams). Controls which frequency table is used for Zipf filtering. Unknown values return 400 with `available_corpora` list.
 
 **BNC lemmatization:** BNC is a lemmatized corpus — `walk`, `walks`, `walked`, `walking` all collapse to the lemma `walk`. The query word is lemmatized via NLTK `WordNetLemmatizer` (noun form first, verb form as fallback) before BNC Zipf lookup.
 
