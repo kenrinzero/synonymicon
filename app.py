@@ -36,8 +36,23 @@ with open('data/websters1913.json') as f:
 
 SUBTLEX_ZIPF = {}  # {word_lower: zipf}
 GOOGLE_ZIPF = {}  # {word_lower: zipf}
+WIKIPEDIA_ZIPF = {}  # {word_lower: zipf}
 BNC_ZIPF = {}       # {word_lower: zipf}
 BNC_TOTAL = 85714226  # total tokens in BNC
+
+def _load_wikipedia():
+    with open('data/wikipedia_freq.txt') as f:
+        for line in f:
+            parts = line.split()
+            if len(parts) != 2:
+                continue
+            word, count_str = parts[0], parts[1]
+            try:
+                count = int(count_str)
+                zipf_val = math.log10(count) - 0.5
+                WIKIPEDIA_ZIPF[word.lower()] = zipf_val
+            except ValueError:
+                continue
 
 def _load_google():
     with open('data/google_1grams.txt') as f:
@@ -105,9 +120,12 @@ def get_zipf(word, corpus='wordfreq'):
         return z
     if corpus == 'google_1grams':
         return GOOGLE_ZIPF.get(wl)
+    if corpus == 'wikipedia':
+        return WIKIPEDIA_ZIPF.get(wl)
     return wordfreq_zipf(wl, 'en')
 
 # Load corpora at startup
+_load_wikipedia()
 _load_google()
 _load_subtlex()
 _load_bnc()
@@ -376,7 +394,7 @@ def synonyms():
     corpus_raw = request.args.get('corpus', 'wordfreq')
 
     VALID_POS = {'all', 'noun', 'verb', 'adj', 'adv'}
-    VALID_CORPORA = {'wordfreq', 'subtlex', 'bnc', 'google_1grams'}
+    VALID_CORPORA = {'wordfreq', 'subtlex', 'bnc', 'google_1grams', 'wikipedia'}
     if corpus_raw not in VALID_CORPORA:
         return jsonify({
             'error': f'unknown corpus: {corpus_raw}',
