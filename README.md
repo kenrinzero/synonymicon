@@ -1,6 +1,6 @@
 # Synonymicon
 
-A multi-source synonym discovery tool with frequency-band filtering. Combines WordNet and fastText to surface candidates across the full Zipf range, including obscure and rare words. Pick a corpus, pick a frequency band, get synonyms — with definitions inline.
+A multi-source synonym discovery tool with frequency-band filtering. Combines WordNet and fastText to surface candidates across the full Zipf range. Pick a corpus, pick a frequency band, get synonyms.
 
 Live at [synonymicon.xyz](https://synonymicon.xyz).
 
@@ -10,7 +10,7 @@ Live at [synonymicon.xyz](https://synonymicon.xyz).
 - [wordfreq](https://github.com/rspeer/wordfreq) for default frequency
 - NLTK WordNet for primary synonyms
 - fastText (`fasttext-wiki-news-subwords-300` via gensim) for secondary candidates
-- Twelve frequency corpora: wordfreq, SUBTLEX-US, BNC, Google 1-grams, Wikipedia, Kaggle, OpenSubtitles, Project Gutenberg, Leipzig News 2025, Leipzig Web COM 2018, Leipzig Web UK 2018
+- Included frequency corpora: wordfreq, SUBTLEX-US, BNC, Google 1-grams, Wikipedia, Kaggle, OpenSubtitles, Project Gutenberg, Leipzig News 2025, Leipzig Web COM 2018, Leipzig Web UK 2018
 - Definition fallback chain: Wiktionary REST API → Webster's 1913 (local) → WordNet gloss → `[undefined]`
 - Vanilla single-page frontend (no build step, no framework)
 
@@ -41,7 +41,7 @@ Server on `localhost:5000`.
 gunicorn -w 1 -t 120 -b 127.0.0.1:5000 app:app
 ```
 
-- `-w 1` (one worker) is intentional — each worker loads ~1.5 GB of model + corpus data.
+- `-w 1` (one worker) is intentional; each worker loads ~1.5 GB of model + corpus data.
 - `-t 120` keeps gunicorn from killing the worker during the long startup.
 - Run behind a reverse proxy (nginx, Caddy) for TLS.
 
