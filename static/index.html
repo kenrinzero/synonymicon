@@ -808,7 +808,7 @@
         height: 3rem;
       }
 
-      footer .footer-link.about {
+      footer .footer-link#about-button {
         display: none;
       }
     }
@@ -892,7 +892,7 @@
 
     <footer>
       <button id="theme-button" class="footer-link" type="button">lumen</button>
-      <button id="corpus-button" class="footer-link corpora" type="button">corpora</button>
+      <button id="about-button" class="footer-link" type="button">corpora</button>
     </footer>
   </div>
 
@@ -1256,6 +1256,8 @@
 
       return entry;
     }
+
+    function render() {
       const colsPerPage = getColumnsPerPage();
       const itemsPerCol = calculateItemsPerColumn();
       const allColumns = chunkIntoColumns(results, itemsPerCol);
@@ -1740,6 +1742,12 @@
     });
 
     applyTheme();
+
+    // ────────────────────────────────────────────────────────────
+    // About / corpora button
+    // ────────────────────────────────────────────────────────────
+    const aboutButton = document.getElementById("about-button");
+    aboutButton.addEventListener("click", showAboutView);
 
     // ────────────────────────────────────────────────────────────
     // Init
