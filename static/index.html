@@ -481,7 +481,7 @@
     }
     .about-text {
       font-family: var(--font-serif);
-      font-size: 0.875rem;
+      font-size: 1rem;
       color: var(--foreground);
       line-height: 1.5;
       margin: 0 0 0.75rem 0;
@@ -1106,20 +1106,20 @@
       {
         name: "wordfreq",
         source: "wordfreq library (Robyn Speer et al.)",
-        citation: "zipf_frequency(word, 'en'), Apache-2.0. SUBTLEX authors must be credited per wordfreq terms.",
+        citation: "zipf_frequency(word, 'en'), Apache-2.0 code; data: see wordfreq attribution terms.",
         description: "Default corpus. Derived from internet text across many sources. Zipf values pre-calibrated to match wordfreq's own scale.",
       },
       {
         name: "SUBTLEX-US",
         source: "Brysbaert & New (2009)",
-        citation: "SUBTLEX-US frequency list. Brysbaert, M., & New, B. (2009). Beyond the Zipf Law.",
-        description: "Film subtitle frequencies from US movies. Strong representation of colloquial and spoken English. OOV words are rare compared to internet-based corpora.",
+        citation: "SUBTLEX-US frequency list. Brysbaert & New (2009). Behavior Research Methods, 41(4), 977–990.",
+        description: "Film and TV subtitle frequencies from US and UK productions. Strong representation of colloquial and spoken English. Rare words are often missing compared to internet-based corpora.",
       },
       {
-        name: "BNC prime",
+        name: "BNC",
         source: "Adam Kilgarriff (bnc-readme.html)",
-        citation: "BNC prime. Adam Kilgarriff. British National Corpus, lemmatized. Open academic data.",
-        description: "British National Corpus — spoken and written British English. Lemmatized so variants collapse to their base form. British English register differs from US-oriented corpora.",
+        citation: "BNC frequency list. Adam Kilgarriff. British National Corpus. Open academic data.",
+        description: "Surface forms across spoken and written British English. POS-tagged via CLAWS in the source data. British English register differs from US-oriented corpora.",
       },
       {
         name: "Google 1-grams",
@@ -1131,12 +1131,12 @@
         name: "Wikipedia",
         source: "IlyaSemenov (GitHub, 2023)",
         citation: "wikipedia-word-frequency.txt, MIT License. IlyaSemenov.",
-        description: "Word frequencies from English Wikipedia dumps (2023), ~2.77M words. Literary and encyclopedic register — more formal than web text.",
+        description: "Word frequencies from English Wikipedia dumps (2023), ~2.77M words. Encyclopedic and expository register — more formal than web text.",
       },
       {
         name: "Kaggle rtatman",
         source: "rtatman on Kaggle",
-        citation: "unigram_freq.csv. Derived from Google Web Trillion Word Corpus by Peter Norvig. Code: MIT. rtatman.",
+        citation: "unigram_freq.csv. Derived from the Google Web Trillion Word Corpus (Google/LDC). CSV processing by rtatman.",
         description: "Same source as Google 1-grams (Google/LDC). Processed into a clean CSV.",
       },
       {
@@ -1155,7 +1155,7 @@
         name: "Leipzig Corpora Collection",
         source: "Universität Leipzig (wortschatz.uni-leipzig.de)",
         citation: "CC BY 4.0. Goldhahn, D., Eckart, T., & Quasthoff, U. (2012). LREC.",
-        description: "Three corpora: News 2025, Web COM 2018, Web UK 2018 (~0.5–1M words each). News is formal; web corpora reflect online writing styles.",
+        description: "Three corpora: News 2025, Web COM (.com domains) 2018, Web UK 2018 (~0.5–1M words each). News is formal; web corpora reflect online writing styles.",
       },
     ];
 
