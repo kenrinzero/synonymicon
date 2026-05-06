@@ -38,7 +38,7 @@ Single breakpoint at `max-width: 768px`:
 - Watermark `&` hidden
 - `.control-button` uses `flex: 0 0 auto` (auto-width, not fixed 8rem) so three controls fit on narrow viewports
 - Nav arrows repositioned inside surface edges; `.nav-arrow.left { left: 0.25rem }`, `.nav-arrow.right { right: 0.25rem }`
-- Footer: `position: sticky; bottom: 0; z-index: 20`; about button hidden via `footer .footer-link.about { display: none }`
+- Footer: `position: sticky; bottom: 0; z-index: 20`; about button hidden via `footer .footer-link#about-button { display: none }`
 - `100dvh` used instead of `100vh` on `html, body, .shell` to handle mobile browser chrome
 - `overflow: hidden` on `.layout`, `.right-panel`, `.word-surface`, `.columns-grid` to prevent content overflow on small viewports
 
@@ -107,9 +107,9 @@ Valid `tier` values: `all` (default), `common`, `uncommon`, `rare`, `exotic`, `a
 
 Valid `pos` values: `all` (default), `noun`, `verb`, `adj`, `adv`. Multi-select: `noun,verb`. When `pos` is specified, WordNet candidates are filtered to matching POS synsets; fastText standalone candidates are excluded (fastText has no POS metadata). Unknown `pos` values return 400 with `available_pos` list.
 
-Valid `corpus` values: `wordfreq` (default), `subtlex` (SUBTLEX-US film subtitles), `bnc` (British National Corpus, lemmatized), `google_1grams` (Norvig), `wikipedia` (Wikipedia 2023), `kaggle` (rtatman), `opensubtitles` (OpenSubtitles 2018), `gutenberg` (Project Gutenberg), `leipzig_news` (Leipzig News 2025), `leipzig_web_com` (Leipzig Web COM 2018), `leipzig_web_uk` (Leipzig Web UK 2018). Controls which frequency table is used for Zipf filtering. Unknown values return 400 with `available_corpora` list.
+Valid `corpus` values: `wordfreq` (default), `subtlex` (SUBTLEX-US film subtitles), `bnc` (British National Corpus, Kilgarriff), `google_1grams` (Norvig), `wikipedia` (Wikipedia 2023), `kaggle` (rtatman), `opensubtitles` (OpenSubtitles 2018), `gutenberg` (Project Gutenberg), `leipzig_news` (Leipzig News 2025), `leipzig_web_com` (Leipzig Web COM 2018), `leipzig_web_uk` (Leipzig Web UK 2018). Controls which frequency table is used for Zipf filtering. Unknown values return 400 with `available_corpora` list.
 
-**BNC lemmatization:** BNC is a lemmatized corpus — `walk`, `walks`, `walked`, `walking` all collapse to the lemma `walk`. The query word is lemmatized via NLTK `WordNetLemmatizer` (noun form first, verb form as fallback) before BNC Zipf lookup.
+**BNC lookup:** The query word is lemmatized via NLTK `WordNetLemmatizer` (noun form first, verb form as fallback) before BNC Zipf lookup, because BNC surface forms are POS-tagged and the corpus lookup requires exact form matching.
 
 Phrases of up to 2 words supported (e.g., `word=hard+work`). 3+ words return 400.
 
@@ -149,7 +149,7 @@ POS dropdown mirrors the frequency pattern: `all` mutually exclusive with indivi
 
 Display labels (`10k-30k`, etc.) are display-only; backend filters on Zipf.
 
-The corpus dropdown has three options: `wordfreq` (general English internet-derived frequencies, default), `subtlex` (SUBTLEX-US film subtitle frequencies, Brysbaert & New 2009), and `bnc` (British National Corpus, lemmatized, Kilgarriff). Switching corpora re-filters results through the selected frequency table; tier boundaries (Zipf values) remain fixed — only the per-word Zipf value changes. Corpus selection is persisted in URL params (`?corpus=...`) and restored on back/forward navigation and page load.
+The corpus dropdown has twelve options: `wordfreq` (internet-derived, default), `subtlex` (US film/TV subtitles, Brysbaert & New 2009), `bnc` (British National Corpus, Kilgarriff), `google_1grams` (Norvig), `wikipedia` (IlyaSemenov 2023), `kaggle` (rtatman), `opensubtitles` (OpenSubtitles 2018), `gutenberg` (Project Gutenberg), `leipzig_news` (Leipzig News 2025), `leipzig_web_com` (Leipzig Web COM 2018), `leipzig_web_uk` (Leipzig Web UK 2018). Switching corpora re-filters results through the selected frequency table; tier boundaries (Zipf values) remain fixed — only the per-word Zipf value changes. Corpus selection is persisted in URL params (`?corpus=...`) and restored on back/forward navigation and page load.
 
 ## Frontend results surface (right panel)
 The right panel holds one rounded "word surface" containing column cells per page. Pagination is page-based, not continuous-scroll.
