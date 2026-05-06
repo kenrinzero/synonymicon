@@ -242,7 +242,7 @@ _load_subtlex()
 _load_bnc()
 
 WIKTIONARY_CACHE = {}
-WIKTIONARY_HEADERS = {'User-Agent': 'Synonymicon/0.1 (dev; contact: local)'}
+WIKTIONARY_HEADERS = {'User-Agent': 'Synonymicon/1.0 (https://synonymicon.xyz)'}
 DEFINITION_CACHE = {}
 
 
