@@ -1113,7 +1113,7 @@
         name: "SUBTLEX-US",
         source: "Brysbaert & New (2009)",
         citation: "SUBTLEX-US frequency list. Brysbaert & New (2009). Behavior Research Methods, 41(4), 977–990.",
-        description: "Film and TV subtitle frequencies from US and UK productions. Strong representation of colloquial and spoken English. Rare words are often missing compared to internet-based corpora.",
+        description: "Film and TV subtitle frequencies from US productions. Strong representation of colloquial and spoken English. Rare words are often missing compared to internet-based corpora.",
       },
       {
         name: "BNC",
@@ -1165,6 +1165,19 @@
         "The Zipf scale runs roughly 0–8+. A higher value means a more common word. The five bands split the scale into usable ranges.",
         "Switching corpora changes each word's Zipf value — the same word can appear in different bands depending on the source.",
         "When you select a frequency band, only synonyms within that range are shown — filtering by how common each result is in the chosen corpus.",
+      ],
+    };
+
+    const AI_MODELS = {
+      title: "Built with assistance from",
+      models: [
+        "Claude Opus 4.5",
+        "Claude Opus 4.6",
+        "Claude Opus 4.7",
+        "Perplexity Computer",
+        "Xiaomi MiMo-V2-Pro",
+        "Xiaomi MiMo-V2.5-Pro",
+        "MiniMax M2.7",
       ],
     };
 
@@ -1223,6 +1236,20 @@
         const p = document.createElement("p");
         p.className = "about-text";
         p.textContent = line;
+        freqInner.appendChild(p);
+      });
+
+      // AI models sub-section
+      const modelsHeading = document.createElement("h3");
+      modelsHeading.className = "about-heading";
+      modelsHeading.style.marginTop = "2rem";
+      modelsHeading.textContent = AI_MODELS.title;
+      freqInner.appendChild(modelsHeading);
+
+      AI_MODELS.models.forEach(name => {
+        const p = document.createElement("p");
+        p.className = "about-text";
+        p.textContent = name;
         freqInner.appendChild(p);
       });
 
