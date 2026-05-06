@@ -434,6 +434,59 @@
       /* grid-template-columns and width set inline by JS for responsive column count */
     }
 
+    .about-entry {
+      padding: 1rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .about-entry:last-child {
+      border-bottom: none;
+    }
+    .about-name {
+      font-family: var(--font-serif);
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      color: var(--foreground);
+      margin: 0 0 0.25rem 0;
+    }
+    .about-source {
+      font-family: var(--font-serif);
+      font-size: 0.8125rem;
+      font-style: italic;
+      color: var(--foreground-muted);
+      margin: 0 0 0.5rem 0;
+    }
+    .about-description {
+      font-family: var(--font-serif);
+      font-size: 0.875rem;
+      color: var(--foreground);
+      line-height: 1.4;
+      margin: 0 0 0.5rem 0;
+    }
+    .about-citation {
+      font-family: var(--font-serif);
+      font-size: 0.75rem;
+      color: var(--foreground-muted);
+      font-style: italic;
+      margin: 0;
+    }
+    .about-heading {
+      font-family: var(--font-serif);
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--foreground);
+      margin: 0 0 1rem 0;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .about-text {
+      font-family: var(--font-serif);
+      font-size: 0.875rem;
+      color: var(--foreground);
+      line-height: 1.5;
+      margin: 0 0 0.75rem 0;
+    }
+
     @keyframes page-in {
       from { opacity: 0; transform: translateX(8px); }
       to   { opacity: 1; transform: translateX(0); }
@@ -839,7 +892,7 @@
 
     <footer>
       <button id="theme-button" class="footer-link" type="button">lumen</button>
-      <button class="footer-link about" type="button">about</button>
+      <button id="corpus-button" class="footer-link corpora" type="button">corpora</button>
     </footer>
   </div>
 
@@ -906,6 +959,11 @@
     const corpusButton = document.getElementById("corpus-button");
     const corpusValue = document.getElementById("corpus-value");
     const corpusMenu = document.getElementById("corpus-menu");
+
+    // ────────────────────────────────────────────────────────────
+    // View state
+    // ────────────────────────────────────────────────────────────
+    let currentView = "search";  // "search" or "about"
 
     // ────────────────────────────────────────────────────────────
     // Layout math
@@ -1042,9 +1100,162 @@
     }
 
     // ────────────────────────────────────────────────────────────
-    // Render — main
+    // View — about / corpora
     // ────────────────────────────────────────────────────────────
-    function render() {
+    const CORPUS_DATA = [
+      {
+        name: "wordfreq",
+        source: "wordfreq library (Robyn Speer et al.)",
+        citation: "zipf_frequency(word, 'en'), Apache-2.0. SUBTLEX authors must be credited per wordfreq terms.",
+        description: "Default corpus. Derived from internet text across many sources. Zipf values pre-calibrated to match wordfreq's own scale.",
+      },
+      {
+        name: "SUBTLEX-US",
+        source: "Brysbaert & New (2009)",
+        citation: "SUBTLEX-US frequency list. Brysbaert, M., & New, B. (2009). Beyond the Zipf Law.",
+        description: "Film subtitle frequencies from US movies. Strong representation of colloquial and spoken English. OOV words are rare compared to internet-based corpora.",
+      },
+      {
+        name: "BNC prime",
+        source: "Adam Kilgarriff (bnc-readme.html)",
+        citation: "BNC prime. Adam Kilgarriff. British National Corpus, lemmatized. Open academic data.",
+        description: "British National Corpus — spoken and written British English. Lemmatized so variants collapse to their base form. British English register differs from US-oriented corpora.",
+      },
+      {
+        name: "Google 1-grams",
+        source: "Peter Norvig (norvig.com/ngrams)",
+        citation: "count_1w.txt, derived from Google Web Trillion Word Corpus (LDC). Peter Norvig.",
+        description: "The most common ~333k words from the Google Web Trillion Word Corpus. Large counts (up to 10^11), web-derived 2008-era text.",
+      },
+      {
+        name: "Wikipedia",
+        source: "IlyaSemenov (GitHub, 2023)",
+        citation: "wikipedia-word-frequency.txt, MIT License. IlyaSemenov.",
+        description: "Word frequencies from English Wikipedia dumps (2023), ~2.77M words. Literary and encyclopedic register — more formal than web text.",
+      },
+      {
+        name: "Kaggle rtatman",
+        source: "rtatman on Kaggle",
+        citation: "unigram_freq.csv. Derived from Google Web Trillion Word Corpus by Peter Norvig. Code: MIT. rtatman.",
+        description: "Same source as Google 1-grams (Google/LDC). Processed into a clean CSV.",
+      },
+      {
+        name: "OpenSubtitles",
+        source: "hermitdave / FrequencyWords (GitHub, 2018)",
+        citation: "FrequencyWords — 2018 en_full.txt. CC BY-SA 4.0. hermitdave. Built from OpenSubtitles subtitle data.",
+        description: "Frequencies from OpenSubtitles film and TV subtitles, ~1.66M words. Captures colloquial spoken language across many genres.",
+      },
+      {
+        name: "Project Gutenberg",
+        source: "ScriptSmith / topwords (GitHub)",
+        citation: "topwords.txt. CC BY-SA 4.0. ScriptSmith. Sourced from Allison Parrish's Gutenberg-Dammit project.",
+        description: "Literary English from Project Gutenberg — classic books and public domain texts, ~3.08M words. Formal register, archaic vocabulary.",
+      },
+      {
+        name: "Leipzig Corpora Collection",
+        source: "Universität Leipzig (wortschatz.uni-leipzig.de)",
+        citation: "CC BY 4.0. Goldhahn, D., Eckart, T., & Quasthoff, U. (2012). LREC.",
+        description: "Three corpora: News 2025, Web COM 2018, Web UK 2018 (~0.5–1M words each). News is formal; web corpora reflect online writing styles.",
+      },
+    ];
+
+    const FREQ_EXPLANATION = {
+      title: "How frequency works",
+      lines: [
+        "The Zipf scale runs roughly 0–8+. A higher value means a more common word. The five bands split the scale into usable ranges.",
+        "Switching corpora changes each word's Zipf value — the same word can appear in different bands depending on the source.",
+        "When you select a frequency band, only synonyms within that range are shown — filtering by how common each result is in the chosen corpus.",
+      ],
+    };
+
+    function showAboutView() {
+      currentView = "about";
+      history.pushState({ view: "about" }, "", "?view=about");
+      renderAbout();
+    }
+
+    function showSearchView() {
+      currentView = "search";
+      const params = lastSearchedWord
+        ? `?word=${encodeURIComponent(lastSearchedWord)}&tier=${[...selectedTiers].join(",")}&pos=${[...selectedPos].join(",")}&corpus=${selectedCorpus}`
+        : window.location.pathname;
+      history.pushState({ word: lastSearchedWord, tiers: [...selectedTiers].join(","), pos: [...selectedPos].join(","), corpus: selectedCorpus }, "", params);
+      render();
+    }
+
+    function renderAbout() {
+      grid.innerHTML = "";
+      grid.classList.remove("with-peek", "no-peek");
+      grid.style.gridTemplateColumns = "repeat(4, 1fr)";
+      grid.style.width = "100%";
+
+      // Build corpus columns (3 per col, col 1-3)
+      const colGroups = [
+        CORPUS_DATA.slice(0, 3),
+        CORPUS_DATA.slice(3, 6),
+        CORPUS_DATA.slice(6, 9),
+      ];
+
+      colGroups.forEach(group => {
+        const cell = document.createElement("div");
+        cell.className = "column-cell";
+        const inner = document.createElement("div");
+        inner.className = "column-inner";
+        group.forEach(item => {
+          inner.appendChild(makeAboutEntry(item));
+        });
+        cell.appendChild(inner);
+        grid.appendChild(cell);
+      });
+
+      // Fourth column: frequency explanation
+      const freqCell = document.createElement("div");
+      freqCell.className = "column-cell";
+      const freqInner = document.createElement("div");
+      freqInner.className = "column-inner";
+
+      const heading = document.createElement("h3");
+      heading.className = "about-heading";
+      heading.textContent = FREQ_EXPLANATION.title;
+      freqInner.appendChild(heading);
+
+      FREQ_EXPLANATION.lines.forEach(line => {
+        const p = document.createElement("p");
+        p.className = "about-text";
+        p.textContent = line;
+        freqInner.appendChild(p);
+      });
+
+      freqCell.appendChild(freqInner);
+      grid.appendChild(freqCell);
+    }
+
+    function makeAboutEntry(item) {
+      const entry = document.createElement("div");
+      entry.className = "about-entry";
+
+      const name = document.createElement("h3");
+      name.className = "about-name";
+      name.textContent = item.name;
+      entry.appendChild(name);
+
+      const source = document.createElement("p");
+      source.className = "about-source";
+      source.textContent = item.source;
+      entry.appendChild(source);
+
+      const desc = document.createElement("p");
+      desc.className = "about-description";
+      desc.textContent = item.description;
+      entry.appendChild(desc);
+
+      const citation = document.createElement("p");
+      citation.className = "about-citation";
+      citation.textContent = item.citation;
+      entry.appendChild(citation);
+
+      return entry;
+    }
       const colsPerPage = getColumnsPerPage();
       const itemsPerCol = calculateItemsPerColumn();
       const allColumns = chunkIntoColumns(results, itemsPerCol);
@@ -1225,8 +1436,7 @@
       results = [];
       currentPage = 0;
       if (abortController) abortController.abort();
-      history.replaceState(null, "", window.location.pathname);
-      render();
+      showSearchView();
     }
 
     searchInput.addEventListener("keydown", (e) => {
@@ -1485,7 +1695,10 @@
 
     window.addEventListener("popstate", (e) => {
       const state = e.state;
-      if (state && state.word) {
+      if (state && state.view === "about") {
+        showAboutView();
+      } else if (state && state.word) {
+        currentView = "search";
         searchInput.value = state.word;
         lastSearchedWord = state.word;
         if (state.tiers) {
@@ -1535,11 +1748,14 @@
 
     // Read URL params on load (bookmarkable queries + back/forward)
     const initParams = new URLSearchParams(window.location.search);
+    const initView = initParams.get("view");
     const initWord = initParams.get("word");
     const initTier = initParams.get("tier");
     const initPos = initParams.get("pos");
     const initCorpus = initParams.get("corpus");
-    if (initWord) {
+    if (initView === "about") {
+      showAboutView();
+    } else if (initWord) {
       searchInput.value = initWord;
       lastSearchedWord = initWord;
       if (initTier) {
