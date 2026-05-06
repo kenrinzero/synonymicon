@@ -1246,12 +1246,18 @@
       modelsHeading.textContent = AI_MODELS.title;
       freqInner.appendChild(modelsHeading);
 
+      const modelList = document.createElement("ul");
+      modelList.style.listStyle = "disc";
+      modelList.style.paddingLeft = "1.25rem";
+      modelList.style.margin = "0";
       AI_MODELS.models.forEach(name => {
-        const p = document.createElement("p");
-        p.className = "about-text";
-        p.textContent = name;
-        freqInner.appendChild(p);
+        const li = document.createElement("li");
+        li.className = "about-text";
+        li.style.marginBottom = "0.2rem";
+        li.textContent = name;
+        modelList.appendChild(li);
       });
+      freqInner.appendChild(modelList);
 
       freqCell.appendChild(freqInner);
       grid.appendChild(freqCell);
