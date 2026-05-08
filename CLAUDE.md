@@ -63,7 +63,7 @@ TIERS = {
 }
 COMMON_FLOOR = 4.0  # band-label threshold; no longer used for filtering
 ```
-Tier filtering: `zmin <= z < zmax`. Advanced mode accepts raw Zipf min/max instead (backend-supported, UI-deferred).
+Tier filtering: `zmin <= z < zmax`.
 
 ## Candidate filtering
 Results from both WordNet and fastText pass through these filters before frequency matching:
@@ -101,7 +101,6 @@ Blended single list, no source labels exposed in UI:
 
 ## API
 `GET /synonyms?word=<x>&tier=<t>&pos=<p>&corpus=<c>` — returns JSON list of `{word, zipf, definition, band}`.
-Optional: `min` and `max` (Zipf floats) for advanced mode.
 
 Valid `tier` values: `all` (default), `common`, `uncommon`, `rare`, `exotic`, `absurd`. Comma-separated lists accepted (`tier=uncommon,rare`).
 
