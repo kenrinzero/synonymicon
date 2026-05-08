@@ -117,7 +117,6 @@ Phrases of up to 2 words supported (e.g., `word=hard+work`). 3+ words return 400
 - **Concurrent fetches:** `/synonyms` uses `ThreadPoolExecutor(max_workers=10)` for parallel definition lookups. Fresh queries ~5-10x faster than sequential; cache-hit queries near-instant.
 
 Parameter precedence:
-- Both `min` and `max` → advanced mode; `tier` ignored if present
 - Exactly one of `min`/`max` → 400
 - Neither → use `tier`; missing `tier` → 400
 - Unknown `tier` value → 400 with available tier names
@@ -192,7 +191,7 @@ Dev server on localhost:5000. Use `--no-reload` because the fastText model loads
 - Dictionary-like features beyond definition (etymology, pronunciation, usage examples)
 - Languages other than English
 - A fourth or fifth ad-hoc theme — three is the committed set; further themes need a deliberate session
-- `simple / advanced` mode toggle in the UI (backend `min`/`max` params remain supported; UI exposure deferred indefinitely)
+- `simple / advanced` mode toggle in the UI 
 - Any database, ORM, or persistent storage
 
 ## Scope rails
