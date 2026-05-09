@@ -4,6 +4,15 @@ A multi-source synonym discovery tool with frequency-band filtering. Combines Wo
 
 Live at [synonymicon.xyz](https://synonymicon.xyz).
 
+## Built with assistance from
+- Claude Opus 4.5
+- Claude Opus 4.6
+- Claude Opus 4.7
+- Perplexity Computer
+- Xiaomi MiMo-V2-Pro
+- Xiaomi MiMo-V2.5-Pro
+- MiniMax M2.7
+
 ## Stack
 
 - Python 3.12 + Flask (synchronous, single-process, no database)
