@@ -34,6 +34,8 @@ python scripts/setup_nltk.py
 
 The fastText model (~1 GB) downloads on first run via gensim and is cached under `~/gensim-data/`.
 
+Set `SYNONYMICON_FASTTEXT=0` to skip the fastText load entirely (WordNet-only candidates, instant startup) — useful for development and required by the test suite (`SYNONYMICON_FASTTEXT=0 pytest`).
+
 ## Run (development)
 
 ```bash
@@ -63,10 +65,19 @@ gunicorn -w 1 -t 120 -b 127.0.0.1:5000 app:app
 ## API
 
 ```
-GET /synonyms?word=<x>&tier=<t>&pos=<p>&corpus=<c>
+GET /synonyms?word=<x>&tier=<t>&pos=<p>&corpus=<c>&rank=<r>
 ```
 
-Returns JSON: `[{word, zipf, definition, band}, ...]`.
+Returns a JSON object:
+
+```json
+{
+  "senses":  [{"id": "happy.a.01", "gloss": "...", "pos": "adj"}],
+  "results": [{"word": "...", "zipf": 3.4, "definition": "...", "band": "uncommon"}]
+}
+```
+
+`senses` is WordNet sense metadata for the query (capped at 8, filtered by `pos`, empty for 2-word phrases); `results` is the blended, sorted, frequency-filtered candidate list.
 
 | Param  | Values |
 |--------|--------|
@@ -74,12 +85,17 @@ Returns JSON: `[{word, zipf, definition, band}, ...]`.
 | `tier` | `all`, `common`, `uncommon`, `rare`, `exotic`, `absurd` (or comma-separated) |
 | `pos`  | `all`, `noun`, `verb`, `adj`, `adv` (or comma-separated) |
 | `corpus` | `wordfreq` (default), `subtlex`, `bnc`, `google_1grams`, `wikipedia`, `kaggle`, `opensubtitles`, `gutenberg`, `leipzig_news`, `leipzig_web_com`, `leipzig_web_uk` |
-| `min`, `max` | optional Zipf floats (advanced mode; overrides `tier`) |
+| `rank` | `common` (default), `rare`, `relevance` — result sort order |
+| `min`, `max` | optional Zipf floats; raw API-only override of `tier` (no UI surface) |
 
 ## Layout
 
 ```
-app.py                  Flask app (all backend logic)
+app.py                  Flask app: routes, validation, response assembly
+config.py               Constants (tiers, valid params, scoring/limits)
+candidates.py           WordNet + fastText candidates, scoring, senses, bands
+corpora.py              Corpus loaders (count aggregation) + get_zipf dispatch
+definitions.py          Wiktionary -> Webster's -> WordNet -> [undefined] chain
 data/                   Corpus files + Webster's 1913
 static/index.html       Single-page frontend (HTML + inline CSS + inline JS)
 scripts/setup_nltk.py   One-time NLTK data download

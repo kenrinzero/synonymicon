@@ -1,4 +1,5 @@
 import json
+import threading
 import requests
 from bs4 import BeautifulSoup
 from nltk.corpus import wordnet
@@ -9,6 +10,11 @@ with open('data/websters1913.json') as f:
 WIKTIONARY_CACHE = {}
 WIKTIONARY_HEADERS = {'User-Agent': 'Synonymicon/1.0 (https://synonymicon.xyz)'}
 DEFINITION_CACHE = {}
+
+# Sentinel distinguishing a transient Wiktionary network failure from a genuine
+# "no entry" (None). Transient failures must not be cached, so the word is
+# retried instead of being permanently saddled with a degraded fallback.
+NETWORK_ERROR = object()
 
 
 def get_wiktionary_definition(word):
@@ -35,8 +41,9 @@ def get_wiktionary_definition(word):
         WIKTIONARY_CACHE[key] = text if text else None
         return WIKTIONARY_CACHE[key]
     except requests.RequestException:
-        return None
+        return NETWORK_ERROR  # transient — do not cache, allow a later retry
     except (ValueError, KeyError):
+        WIKTIONARY_CACHE[key] = None
         return None
 
 
@@ -44,12 +51,19 @@ def get_websters_definition(word):
     return WEBSTERS.get(word.lower())
 
 
+# NLTK's WordNet reader seeks a shared file handle, so concurrent .synsets()/
+# .definition() calls (get_definition runs under a ThreadPoolExecutor) interleave
+# seeks and read garbage, raising WordNetError. Serialize gloss access.
+_WORDNET_LOCK = threading.Lock()
+
+
 def get_wordnet_gloss(word):
-    synsets = wordnet.synsets(word)
-    if synsets:
-        defn = synsets[0].definition()
-        if defn:
-            return defn
+    with _WORDNET_LOCK:
+        synsets = wordnet.synsets(word)
+        if synsets:
+            defn = synsets[0].definition()
+            if defn:
+                return defn
     return None
 
 
@@ -57,17 +71,17 @@ def get_definition(word):
     key = word.lower()
     if key in DEFINITION_CACHE:
         return DEFINITION_CACHE[key]
-    d = get_wiktionary_definition(word)
-    if d:
-        DEFINITION_CACHE[key] = d
-        return d
-    d = get_websters_definition(word)
-    if d:
-        DEFINITION_CACHE[key] = d
-        return d
-    d = get_wordnet_gloss(word)
-    if d:
-        DEFINITION_CACHE[key] = d
-        return d
-    DEFINITION_CACHE[key] = "[undefined]"
-    return "[undefined]"
+
+    wik = get_wiktionary_definition(word)
+    wiktionary_errored = wik is NETWORK_ERROR
+    if wik and not wiktionary_errored:
+        DEFINITION_CACHE[key] = wik
+        return wik
+
+    result = get_websters_definition(word) or get_wordnet_gloss(word) or "[undefined]"
+    # Only cache when Wiktionary gave a definitive answer. On a transient network
+    # error, return the fallback for this request but leave the cache untouched so
+    # the next lookup re-attempts Wiktionary.
+    if not wiktionary_errored:
+        DEFINITION_CACHE[key] = result
+    return result

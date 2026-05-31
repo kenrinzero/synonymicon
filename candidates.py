@@ -70,27 +70,26 @@ def get_fasttext_candidates(word, n=100):
         return []
     wl = word.lower()
     try:
-        return [(w, score) for w, score in FASTTEXT_MODEL.most_similar(word, topn=n) if w.lower() != wl]
+        # The fasttext-wiki-news vocabulary is lowercased; query with wl so a
+        # capitalized input (e.g. "Run") doesn't KeyError and silently drop the
+        # entire embedding source.
+        return [(w, score) for w, score in FASTTEXT_MODEL.most_similar(wl, topn=n) if w.lower() != wl]
     except KeyError:
         return []
 
 
 def get_morphological_variants(word):
     w = word.lower()
-    variants = {w}
+    # Simple suffixes apply to every word (over-generating harmless non-words is
+    # fine — they just won't match any real candidate; under-generating lets an
+    # inflected form of the query slip through, which is the bug we're avoiding).
+    variants = {w, w + 's', w + 'es', w + 'ed', w + 'ing', w + 'er', w + 'ers'}
     if w.endswith('e'):
-        variants.add(w[:-1] + 'ing')
-        variants.add(w[:-1] + 'ed')
-    else:
-        variants.add(w + 's')
-        variants.add(w + 'ed')
-        variants.add(w + 'ing')
-        variants.add(w + 'er')
-        variants.add(w + 'es')
+        # e-drop forms (make->making/maker) plus the plural/agent forms the old
+        # exclusive branch omitted (make->makes/maker).
+        variants.update({w[:-1] + 'ing', w[:-1] + 'ed', w[:-1] + 'es', w[:-1] + 'er', w + 'r', w + 'rs'})
     if len(w) >= 3 and w[-1] not in 'aeiou' and w[-2] in 'aeiou' and w[-3] not in 'aeiou':
-        variants.add(w + w[-1] + 'ed')
-        variants.add(w + w[-1] + 'ing')
-        variants.add(w + w[-1] + 'er')
+        variants.update({w + w[-1] + 'ed', w + w[-1] + 'ing', w + w[-1] + 'er'})
     return variants
 
 
@@ -111,15 +110,17 @@ def _score_and_filter(word, scored, corpus, rank):
     morph = get_morphological_variants(word.lower())
     results = []
     for key, (display, score) in scored.items():
-        if key in morph or len(key) < 3 or '--' in key or re.search(r'(.)\1{2,}', key) or not key[0].isalpha():
-            continue
+        # Strip trailing-punctuation artifacts ("walk-", "walk.") first, then run
+        # every filter, the frequency lookup, and the display on the cleaned form —
+        # so a punctuated candidate is neither looked up nor shown with its artifact.
         cleaned = key.rstrip('-.')
-        if cleaned in morph:
+        if (cleaned in morph or len(cleaned) < 3 or '--' in cleaned
+                or re.search(r'(.)\1{3,}', cleaned) or not cleaned[:1].isalpha()):
             continue
-        z = get_zipf(key, corpus)
+        z = get_zipf(cleaned, corpus)
         if z is None:
             continue
-        results.append((display, z, score))
+        results.append((display.rstrip('-.'), z, score))
 
     if rank == 'relevance':
         results.sort(key=lambda x: (-x[2], -x[1]))

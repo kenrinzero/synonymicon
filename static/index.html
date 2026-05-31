@@ -4,6 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Synonymicon</title>
+  <meta name="description" content="Multi-source synonym discovery with frequency-band filtering — WordNet and fastText candidates across eleven frequency corpora.">
+  <meta name="theme-color" content="#f3ede2">
+  <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="%23ebe3d4"/><text x="16" y="24" font-family="Georgia,serif" font-size="23" font-style="italic" text-anchor="middle" fill="%232a241c">S</text></svg>'>
+  <meta property="og:title" content="Synonymicon">
+  <meta property="og:description" content="Multi-source synonym discovery with frequency-band filtering.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://synonymicon.xyz/">
+  <meta name="twitter:card" content="summary">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
@@ -892,28 +900,28 @@
 
           <div class="controls-row">
             <div class="control-wrapper">
-              <button id="corpus-button" class="control-button" type="button">
+              <button id="corpus-button" class="control-button" type="button" aria-haspopup="true" aria-expanded="false">
                 <span class="text"><span class="label">corpus:</span><span id="corpus-value" class="value">wordfreq</span></span>
               </button>
               <div id="corpus-menu" class="dropdown-menu"></div>
             </div>
             <div class="control-divider"></div>
             <div class="control-wrapper">
-              <button id="freq-button" class="control-button" type="button">
+              <button id="freq-button" class="control-button" type="button" aria-haspopup="true" aria-expanded="false">
                 <span class="text"><span class="label">frequency:</span><span id="freq-value" class="value">all</span></span>
               </button>
               <div id="freq-menu" class="dropdown-menu"></div>
             </div>
             <div class="control-divider"></div>
             <div class="control-wrapper">
-              <button id="pos-button" class="control-button" type="button">
+              <button id="pos-button" class="control-button" type="button" aria-haspopup="true" aria-expanded="false">
                 <span class="text"><span class="label">pos:</span><span id="pos-value" class="value">all</span></span>
               </button>
               <div id="pos-menu" class="dropdown-menu"></div>
             </div>
             <div class="control-divider"></div>
             <div class="control-wrapper">
-              <button id="sort-button" class="control-button" type="button">
+              <button id="sort-button" class="control-button" type="button" aria-haspopup="true" aria-expanded="false">
                 <span class="text"><span class="label">sort:</span><span id="sort-value" class="value">common</span></span>
               </button>
               <div id="sort-menu" class="dropdown-menu"></div>
@@ -937,7 +945,7 @@
         </button>
 
         <div class="word-surface">
-          <div id="columns-grid" class="columns-grid"></div>
+          <div id="columns-grid" class="columns-grid" aria-live="polite"></div>
           <div id="page-indicator" class="page-indicator"></div>
         </div>
       </section>
@@ -966,13 +974,13 @@
       { label: "150k+",    value: "absurd" },
     ];
 
-    const BAND_DISPLAY = {
-      common:   "~0–10k",
-      uncommon: "~10k–30k",
-      rare:     "~30k–80k",
-      exotic:   "~80k–150k",
-      absurd:   "~150k+",
-    };
+    // Band-separator labels mirror the frequency dropdown's labels exactly, so a
+    // band reads identically as a control option and as an inline separator.
+    // (The rank-count framing like "10k–30k" is calibrated to wordfreq; other
+    // corpora map the same Zipf band to different real-world ranks.)
+    const BAND_DISPLAY = Object.fromEntries(
+      FREQUENCY_TIERS.filter(t => t.value !== "all").map(t => [t.value, t.label])
+    );
 
     const POS_TIERS = [
       { label: "all",       value: "all" },
@@ -1087,9 +1095,14 @@
       const div = document.createElement("div");
       div.className = "entry";
 
-      const headword = document.createElement("h3");
+      // Not a document heading — it's a navigable list item. role/tabindex/keydown
+      // make pivot-on-click reachable by keyboard and AT (mirrors the brand element)
+      // without changing the visual treatment.
+      const headword = document.createElement("div");
       headword.className = "entry-headword";
       headword.textContent = entry.word;
+      headword.setAttribute("role", "link");
+      headword.setAttribute("tabindex", "0");
 
       if (typeof entry.zipf === "number") {
         const zipf = document.createElement("span");
@@ -1098,7 +1111,11 @@
         headword.appendChild(zipf);
       }
 
-      headword.addEventListener("click", () => pivotToWord(entry.word));
+      const pivot = () => pivotToWord(entry.word);
+      headword.addEventListener("click", pivot);
+      headword.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pivot(); }
+      });
 
       const def = document.createElement("p");
       def.className = "entry-def";
@@ -1153,6 +1170,7 @@
     // ────────────────────────────────────────────────────────────
     function setLoading(on) {
       isLoading = on;
+      grid.setAttribute("aria-busy", on ? "true" : "false");
       let dot = wordSurface.querySelector(".loading-dot");
       if (on) {
         if (!dot) {
@@ -1307,7 +1325,7 @@
       const freqInner = document.createElement("div");
       freqInner.className = "column-inner";
 
-      const heading = document.createElement("h3");
+      const heading = document.createElement("h2");
       heading.className = "about-heading";
       heading.textContent = FREQ_EXPLANATION.title;
       freqInner.appendChild(heading);
@@ -1320,7 +1338,7 @@
       });
 
       // AI models sub-section
-      const modelsHeading = document.createElement("h3");
+      const modelsHeading = document.createElement("h2");
       modelsHeading.className = "about-heading";
       modelsHeading.style.marginTop = "2rem";
       modelsHeading.textContent = AI_MODELS.title;
@@ -1347,7 +1365,7 @@
       const entry = document.createElement("div");
       entry.className = "about-entry";
 
-      const name = document.createElement("h3");
+      const name = document.createElement("div");
       name.className = "about-name";
       name.textContent = item.name;
       entry.appendChild(name);
@@ -1434,6 +1452,7 @@
           if (peekCol && peekCol.length > 0) {
             const peek = renderColumn(peekCol, prevBand);
             peek.setAttribute("aria-hidden", "true");
+            peek.inert = true;  // truly non-interactive: not focusable, not clickable
             grid.appendChild(peek);
           }
         }
@@ -1490,10 +1509,12 @@
         const res = await fetch(url, { signal: abortController.signal });
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || res.status);
+          const e = new Error(errData.error || `request failed (${res.status})`);
+          e.isValidation = res.status >= 400 && res.status < 500;  // 4xx = user input
+          throw e;
         }
         const data = await res.json();
-        results = data.results;
+        results = data.results || [];
         renderSenses(data.senses || []);
         currentPage = 0;
       } catch (err) {
@@ -1508,8 +1529,7 @@
         grid.style.width = "100%";
         const cell = document.createElement("div");
         cell.className = "column-cell span-all";
-        const isValidation = err.message && err.message.includes("single-word");
-        cell.appendChild(renderErrorState(err.message || "something went wrong — check the backend log", isValidation));
+        cell.appendChild(renderErrorState(err.message || "something went wrong — check the backend log", err.isValidation === true));
         grid.appendChild(cell);
         renderIndicator(0);
         renderNavArrows(0);
@@ -1655,13 +1675,28 @@
       updateFreqLabel();
     }
 
+    function closeAllMenus() {
+      [corpusMenu, freqMenu, posMenu, sortMenu].forEach(m => m.classList.remove("open"));
+      [corpusButton, freqButton, posButton, sortButton].forEach(b => b.setAttribute("aria-expanded", "false"));
+    }
+
+    function toggleMenu(menu, button) {
+      const willOpen = !menu.classList.contains("open");
+      closeAllMenus();
+      if (willOpen) {
+        menu.classList.add("open");
+        button.setAttribute("aria-expanded", "true");
+      }
+    }
+
+    // One handler closes every menu on an outside click or Escape, and resets
+    // each trigger's aria-expanded (replaces four near-identical listeners).
+    document.addEventListener("click", closeAllMenus);
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeAllMenus(); });
+
     freqButton.addEventListener("click", (e) => {
       e.stopPropagation();
-      freqMenu.classList.toggle("open");
-    });
-
-    document.addEventListener("click", () => {
-      freqMenu.classList.remove("open");
+      toggleMenu(freqMenu, freqButton);
     });
 
     // ────────────────────────────────────────────────────────────
@@ -1701,11 +1736,7 @@
 
     corpusButton.addEventListener("click", (e) => {
       e.stopPropagation();
-      corpusMenu.classList.toggle("open");
-    });
-
-    document.addEventListener("click", () => {
-      corpusMenu.classList.remove("open");
+      toggleMenu(corpusMenu, corpusButton);
     });
 
     buildCorpusMenu();
@@ -1739,11 +1770,7 @@
 
     sortButton.addEventListener("click", (e) => {
       e.stopPropagation();
-      sortMenu.classList.toggle("open");
-    });
-
-    document.addEventListener("click", () => {
-      sortMenu.classList.remove("open");
+      toggleMenu(sortMenu, sortButton);
     });
 
     buildSortMenu();
@@ -1821,14 +1848,10 @@
 
     posButton.addEventListener("click", (e) => {
       e.stopPropagation();
-      posMenu.classList.toggle("open");
+      toggleMenu(posMenu, posButton);
     });
 
     buildPosMenu();
-
-    document.addEventListener("click", () => {
-      posMenu.classList.remove("open");
-    });
 
     // ────────────────────────────────────────────────────────────
     // Navigation
@@ -1838,10 +1861,10 @@
     });
 
     nextBtn.addEventListener("click", () => {
-      const colsPerPage = getColumnsPerPage();
-      const itemsPerCol = calculateItemsPerColumn();
-      const totalPages = Math.ceil(chunkIntoColumns(results, itemsPerCol).length / colsPerPage);
-      if (currentPage < totalPages - 1) { currentPage++; render(); }
+      // render() clamps currentPage to the last page and renderNavArrows re-disables
+      // the button at the bound, so no separate page-count math is needed here.
+      currentPage++;
+      render();
     });
 
     let resizeTimer = null;
@@ -1852,10 +1875,15 @@
 
     window.addEventListener("popstate", (e) => {
       const state = e.state;
+      // popstate must only RESTORE the view, never push a new history entry —
+      // calling showAboutView() here (which pushes) corrupts the back/forward stack.
       if (state && state.view === "about") {
-        showAboutView();
-      } else if (state && state.word) {
-        currentView = "search";
+        currentView = "about";
+        renderAbout();
+        return;
+      }
+      currentView = "search";
+      if (state && state.word) {
         searchInput.value = state.word;
         lastSearchedWord = state.word;
         if (state.tiers) {
@@ -1877,6 +1905,16 @@
           buildSortMenu();
         }
         fetchSynonyms(state.word, false);
+      } else {
+        // Back to the initial/empty state — reset the UI so it matches the URL
+        // instead of leaving the previous query's results on screen.
+        searchInput.value = "";
+        lastSearchedWord = "";
+        results = [];
+        currentPage = 0;
+        senseBar.innerHTML = "";
+        if (abortController) abortController.abort();
+        render();
       }
     });
 

@@ -10,13 +10,19 @@ Not a vocabulary learning tool. Not a definitions-first tool — definitions are
 - **No database** — all state computed on the fly, nothing persisted
 - **wordfreq** for frequency: `zipf_frequency(word, 'en')` at query time. No precomputed frequency index. Zipf scale: 0 = vanishingly rare, 7 = extremely common
 - **NLTK WordNet** — primary synonym source (synset lemmas)
-- **fastText** (fasttext-wiki-news-subwords-300 via gensim) — secondary/fallback synonym source. Note: the gensim distribution is KeyedVectors (pretrained vectors only), not the full FastText model — OOV inputs raise KeyError and must be caught. WordNet still covers OOV cases.
+- **fastText** (fasttext-wiki-news-subwords-300 via gensim) — secondary/fallback synonym source. Note: the gensim distribution is KeyedVectors (pretrained vectors only), not the full FastText model — OOV inputs raise KeyError and must be caught. WordNet still covers OOV cases. The vocabulary is lowercased, so `most_similar` is queried with the lowercased word (a capitalized input would otherwise KeyError and silently drop the whole embedding source). Disable the ~1 GB model load with `SYNONYMICON_FASTTEXT=0` (dev/test mode — WordNet-only results, instant startup; the test suite uses this).
 - **Definition fallback chain:** Wiktionary API → Webster's 1913 (local JSON at `data/websters1913.json`) → WordNet gloss → `"[undefined]"` (literal string, rendered in italics). Wiktionary REST API requires a descriptive `User-Agent` header per Wikimedia policy — requests without one return 403 or get rate-limited. Use `requests` for fetches and `beautifulsoup4` (`bs4`) for HTML stripping.
-- **Corpus frequency tables** — `data/subtlex_us.xlsx` (SUBTLEX-US, Brysbaert & New 2009), `data/bnc_all.al` (BNC, Kilgarriff, ~939k lemmas), `data/google_1grams.txt` (Norvig, 333k words), `data/wikipedia_freq.txt` (IlyaSemenov 2023, 2.77M words), `data/kaggle_freq.csv` (rtatman, 333k words), `data/hermitdave_freq.txt` (OpenSubtitles 2018, 1.66M words), `data/scriptsmith_freq.txt` (Project Gutenberg, 3.08M words), `data/leipzig_news_2025.txt` (Leipzig News 2025, 634k types), `data/leipzig_web_com_2018.txt` (Leipzig Web COM 2018, 480k types), and `data/leipzig_web_uk_2018.txt` (Leipzig Web UK 2018, 445k types) loaded at startup alongside wordfreq. `get_zipf(word, corpus)` dispatches to the selected source. SUBTLEX-US Zipf values are pre-computed; BNC is `log10(count × 1B / 85_714_226)`; Google/Kaggle use `log10(count) + 3.0`; Wikipedia uses `log10(count) - 0.5`; OpenSubtitles/Gutenberg use `log10(count) + 0.37`; Leipzig News uses `log10(count) + 1.74`; Leipzig Web COM uses `log10(count) + 1.83`; Leipzig Web UK uses `log10(count) + 1.76`.
+- **Corpus frequency tables** — `data/subtlex_us.xlsx` (SUBTLEX-US, Brysbaert & New 2009), `data/bnc_all.al` (BNC, Kilgarriff, ~939k lemmas), `data/google_1grams.txt` (Norvig, 333k words), `data/wikipedia_freq.txt` (IlyaSemenov 2023, 2.77M words), `data/kaggle_freq.csv` (rtatman, 333k words), `data/hermitdave_freq.txt` (OpenSubtitles 2018, 1.66M words), `data/scriptsmith_freq.txt` (Project Gutenberg, 3.08M words), `data/leipzig_news_2025.txt` (Leipzig News 2025, 634k types), `data/leipzig_web_com_2018.txt` (Leipzig Web COM 2018, 480k types), and `data/leipzig_web_uk_2018.txt` (Leipzig Web UK 2018, 445k types) loaded at startup alongside wordfreq. `get_zipf(word, corpus)` dispatches to the selected source. **Counts are aggregated (summed) per lowercased word before the Zipf is computed**, so BNC's per-POS-tag rows and Leipzig's capitalization variants are combined rather than silently dropped (a `dict[word, zipf]` is built once per corpus at load via a shared count-aggregating loader). SUBTLEX-US Zipf values are pre-computed (read directly, no aggregation); BNC is `log10(count × 1B / 85_714_226)`; Google/Kaggle use `log10(count) - 2.634`; Wikipedia uses `log10(count) - 0.5`; OpenSubtitles uses `log10(count) + 0.37`; Gutenberg uses `log10(count) - 0.5`; Leipzig News uses `log10(count) + 1.6763`; Leipzig Web COM uses `log10(count) + 1.7779`; Leipzig Web UK uses `log10(count) + 1.6987`. **Every offset is calibrated so the corpus's "the" lands at ≈ 7.73** (the wordfreq anchor) for cross-corpus tier consistency; the only exceptions are SUBTLEX (uses its own pre-computed Zipf, "the" ≈ 7.47) and BNC ("the" ≈ 7.86 via the principled per-billion formula). When adding or recalibrating a count corpus, verify `get_zipf('the', <corpus>) ≈ 7.73`. For the default `wordfreq` source, an unknown word (wordfreq Zipf 0.0) is returned as `None` so OOV candidates are dropped uniformly with the dict-backed corpora (rather than polluting the `absurd` band).
 - **Frontend:** single-page HTML/CSS/JS served from `static/`. Three themes cycled via footer button, persisted in localStorage. Right-heavier layout (38/62); integrated search/control surface on the left; single rounded word surface containing column cells on the right.
 
 ## Layout
-- `app.py` — Flask app, all backend logic
+Backend is split into focused modules (was a single `app.py` until the Session-21 refactor):
+- `app.py` — Flask app: routes, request validation, response assembly
+- `config.py` — constants: `TIERS`, `POS_MAP`, `VALID_POS`/`VALID_RANKS`/`VALID_CORPORA`, scoring/limit constants, `FASTTEXT_ENABLED`
+- `candidates.py` — WordNet + fastText candidate generation, blended scoring/sorting, morphology/artifact filtering, `get_band_label`, `get_senses`
+- `corpora.py` — corpus loaders (count aggregation) + `get_zipf` dispatch
+- `definitions.py` — Wiktionary → Webster's → WordNet gloss → `[undefined]` fallback chain and caches
+- `scripts/setup_nltk.py` — one-time NLTK `wordnet`/`omw-1.4` download
 - `data/websters1913.json` — Webster's 1913, loaded at startup
 - `data/subtlex_us.xlsx` — SUBTLEX-US frequency table (Brysbaert & New 2009), loaded at startup
 - `data/google_1grams.txt` — Norvig Google 1-grams (333k words), loaded at startup
@@ -68,8 +74,8 @@ Tier filtering: `zmin <= z < zmax`.
 ## Candidate filtering
 Results from both WordNet and fastText pass through these filters before frequency matching:
 - **Query exclusion:** case-insensitive match against the input word
-- **Morphological variants:** query word + common inflections (-s, -ed, -ing, -er, -es, double-consonant variants)
-- **Repeated characters:** any character repeating 3+ times (`re.search(r'(.)\1{2,}', key)`)
+- **Morphological variants:** query word + common inflections (-s, -es, -ed, -ing, -er, -ers, double-consonant variants). Words ending in `e` additionally get the e-drop forms (make→making/maker) *and* the simple-suffix forms (make→makes/maker) — the branch is additive, not exclusive, so inflected forms of the query don't slip through.
+- **Repeated characters:** any character repeating 4+ times (`re.search(r'(.)\1{3,}', key)`) — catches embedding junk like "loooove" while sparing valid triple-consonant compounds (wallless, crossstitch).
 - **Non-letter start:** result must begin with `[a-z]`
 - **Double hyphen:** `--` in key
 - **Short words:** fewer than 3 characters
@@ -79,7 +85,7 @@ Results from both WordNet and fastText pass through these filters before frequen
 Definitions over 200 characters are truncated at the last word boundary with "…" appended. The full definition is cached in `DEFINITION_CACHE`; truncation happens at API response time only.
 
 ## Band labels
-The API includes a `band` field on each result. Band labels match `TIERS` keys exactly. This was off-by-one before Session 7b's fix; `get_band_label(zipf)` in `app.py` is the single source of truth, and any change to `TIERS` boundaries must update `get_band_label` in lockstep.
+The API includes a `band` field on each result. Band labels match `TIERS` keys exactly. This was off-by-one before Session 7b's fix; `get_band_label(zipf)` in `candidates.py` is the single source of truth, and any change to `TIERS` boundaries must update `get_band_label` in lockstep.
 
 | Zipf range | `band` value |
 |---|---|
@@ -97,12 +103,26 @@ Blended single list, no source labels exposed in UI:
 - Normalize for comparison/lookup on lowercase; WordNet lemma underscores become spaces
 - Multiword candidates are allowed for MVP
 - fastText cosine cutoff: `FASTTEXT_COSINE_CUTOFF = 0.65` 
-- **Sort: Zipf descending, score descending as tiebreaker.** 
+- **Sort is user-selectable via the `rank` param (default `common`):**
+  - `common` — Zipf descending, score descending as tiebreaker (the default/original order)
+  - `rare` — Zipf ascending, score descending as tiebreaker
+  - `relevance` — score descending, Zipf descending as tiebreaker
 
 ## API
-`GET /synonyms?word=<x>&tier=<t>&pos=<p>&corpus=<c>` — returns JSON list of `{word, zipf, definition, band}`.
+`GET /synonyms?word=<x>&tier=<t>&pos=<p>&corpus=<c>&rank=<r>` — returns a JSON **object**:
+
+```json
+{
+  "senses":  [{"id": "<synset>", "gloss": "...", "pos": "noun"}],
+  "results": [{"word": "...", "zipf": 3.4, "definition": "...", "band": "uncommon"}]
+}
+```
+
+`senses` is WordNet sense metadata for the query (capped at 8, filtered by `pos` when set, empty `[]` for 2-word phrases). `results` is the blended/sorted/frequency-filtered candidate list.
 
 Valid `tier` values: `all` (default), `common`, `uncommon`, `rare`, `exotic`, `absurd`. Comma-separated lists accepted (`tier=uncommon,rare`).
+
+Valid `rank` values: `common` (default), `rare`, `relevance` — controls result sort order (see **Synonym scoring**). Unknown values return 400 with `available_ranks` list.
 
 Valid `pos` values: `all` (default), `noun`, `verb`, `adj`, `adv`. Multi-select: `noun,verb`. When `pos` is specified, WordNet candidates are filtered to matching POS synsets; fastText standalone candidates are excluded (fastText has no POS metadata). Unknown `pos` values return 400 with `available_pos` list.
 
@@ -128,13 +148,16 @@ The left panel contains, top to bottom:
 1. **Serif "Synonymicon" wordmark** in the top-left corner — just the word in a serif face, 1.75rem (Session 7b bump). No logo glyph, no ornament.
 2. **Integrated search/control surface**, anchored at the upper-third (margin-top ~18vh), structured as a single rounded "tray" containing:
    - Inner search card (input field with magnifying-glass icon and submit-arrow button). Placeholder text: `discover`.
-   - Three flat dropdowns sitting on the tray below the search card: `corpus: <current>`, `frequency: <current>`, and `pos: <current>`.
+   - Four flat dropdowns sitting on the tray below the search card: `corpus: <current>`, `frequency: <current>`, `pos: <current>`, and `sort: <current>`.
    - The tray, search card, and dropdowns form three layered visual surfaces — outer tray (`--surface`), inner search card (`--column`), and the bare dropdowns on the tray.
+   - Each dropdown trigger carries `aria-haspopup`/`aria-expanded` (synced on open/close); a single document handler closes all menus on outside-click or Escape.
 3. **Watermark `&` glyph** in the bottom-left, ~18rem, ~7% opacity, fills the otherwise-empty lower portion of the panel.
 
 Frequency dropdown is checkbox-style with multi-select. `all` is mutually exclusive with bands; selecting any band deselects `all`. Empty selection reverts to `all`. Selecting all individual bands collapses to `all`. Trigger label shows `all` when all selected, band name when one selected, `custom` when multiple selected. A divider separates `all` from the band options.
 
 POS dropdown mirrors the frequency pattern: `all` mutually exclusive with individual POSes. Trigger label shows `all` / POS name / `custom`. Selecting all collapses to `all`.
+
+Sort dropdown is single-select with options `common` (default), `rare`, `relevance` → sent as the `rank` param. The band-separator labels are derived from the same `FREQUENCY_TIERS` label set so a band reads identically as a control option and as an inline separator. (The rank-count framing like `10k-30k` is calibrated to wordfreq; under other corpora the same Zipf band maps to a different real-world rank — a known labeling limitation, not a per-corpus relabel.)
 
 | UI label | `tier` param |
 |---|---|
@@ -147,7 +170,7 @@ POS dropdown mirrors the frequency pattern: `all` mutually exclusive with indivi
 
 Display labels (`10k-30k`, etc.) are display-only; backend filters on Zipf.
 
-The corpus dropdown has twelve options: `wordfreq` (internet-derived, default), `subtlex` (US film/TV subtitles, Brysbaert & New 2009), `bnc` (British National Corpus, Kilgarriff), `google_1grams` (Norvig), `wikipedia` (IlyaSemenov 2023), `kaggle` (rtatman), `opensubtitles` (OpenSubtitles 2018), `gutenberg` (Project Gutenberg), `leipzig_news` (Leipzig News 2025), `leipzig_web_com` (Leipzig Web COM 2018), `leipzig_web_uk` (Leipzig Web UK 2018). Switching corpora re-filters results through the selected frequency table; tier boundaries (Zipf values) remain fixed — only the per-word Zipf value changes. Corpus selection is persisted in URL params (`?corpus=...`) and restored on back/forward navigation and page load.
+The corpus dropdown has eleven options: `wordfreq` (internet-derived, default), `subtlex` (US film/TV subtitles, Brysbaert & New 2009), `bnc` (British National Corpus, Kilgarriff), `google_1grams` (Norvig), `wikipedia` (IlyaSemenov 2023), `kaggle` (rtatman), `opensubtitles` (OpenSubtitles 2018), `gutenberg` (Project Gutenberg), `leipzig_news` (Leipzig News 2025), `leipzig_web_com` (Leipzig Web COM 2018), `leipzig_web_uk` (Leipzig Web UK 2018). Switching corpora re-filters results through the selected frequency table; tier boundaries (Zipf values) remain fixed — only the per-word Zipf value changes. Corpus selection is persisted in URL params (`?corpus=...`) and restored on back/forward navigation and page load.
 
 ## Frontend results surface (right panel)
 The right panel holds one rounded "word surface" containing column cells per page. Pagination is page-based, not continuous-scroll.
@@ -161,7 +184,7 @@ The right panel holds one rounded "word surface" containing column cells per pag
 
 ### Within columns
 - **Entry layout:** serif headword (~2rem, slight letterspacing), small superscript Zipf badge, italic serif definition (~1rem, muted color, ~1.35 line-height).
-- **Pivot-on-click:** clicking a result headword fires a new search for that word. `cursor: pointer` is the only visual affordance — no underlines, no link styling. Page resets to 1 on pivot. Browser history via `history.pushState({word, tiers, pos})`; `popstate` listener restores word + tier + pos on back/forward. On page load, `?word=...&tier=...&pos=...` params are read and auto-searched (bookmarkable queries).
+- **Pivot-on-click:** clicking a result headword fires a new search for that word. `cursor: pointer` is the only *visual* affordance — no underlines, no link styling — but the headword carries `role="link"`/`tabindex="0"` and an Enter/Space keydown so the pivot is keyboard- and AT-operable (it is a `<div>`, not a heading — results are a list, not document sections). Page resets to 1 on pivot. Browser history via `history.pushState({word, tiers, pos, corpus, rank})`; the `popstate` listener restores all of word + tier + pos + corpus + rank on back/forward (and resets to the empty state when navigating back to the initial entry). `popstate` only restores — it never pushes. On page load, `?word=...&tier=...&pos=...&corpus=...&rank=...` params are read and auto-searched (bookmarkable queries).
 
 **Brand wordmark reset.** The "Synonymicon" wordmark is clickable and resets to the empty state. Enter key with an empty search field also triggers the reset. `history.replaceState` clears the URL so refreshing on the empty state stays there.
 - **Hover state:** color deepens on both headword and definition. No movement, no scale, no shadow change.
@@ -204,7 +227,7 @@ Dev server on localhost:5000. Use `--no-reload` because the fastText model loads
 - The current visual treatment intentionally includes: soft shadows on surfaces, a watermark `&` glyph in the lower-left of the search panel, a 220ms page-transition animation, and serif typography (Cormorant Garamond). These are part of the agreed visual model — do not remove them as "decorative excess." Do not, however, add further ornament: no additional decorative glyphs, no additional animations beyond page transition and color-state hover, no additional taglines or branding marks beyond the wordmark and watermark already present.
 
 ## Coding rules
-- Backend changes are tiny: one-line sort changes, one-function band-label adjustments, etc. Do not refactor `app.py` for "cleanliness" without a reason.
+- Backend is split into focused modules (`app.py`, `config.py`, `candidates.py`, `corpora.py`, `definitions.py`); each has a single responsibility. Most changes are still tiny — a sort tweak, a band-label adjustment, one corpus row in `corpora.py`'s `_COUNT_CORPORA` table. Don't re-merge the modules or refactor for "cleanliness" without a reason.
 - Frontend is single-file. Inline CSS in `<style>`, inline JS in `<script>`. Do not split into separate files unless there's a load-time reason.
 - The fixed-height heuristic for items-per-column (`ITEM_HEIGHT_PX = 130`) is acknowledged-imperfect; do not "fix" it without replacing it with proper dynamic measurement (and only do that as a deliberate session task, not a side effect of other work).
 - When a `Planned for Session 8` item lands, fold it into the relevant spec section in the same change and remove the bullet. The planned-changes section is a staging area, not permanent documentation.

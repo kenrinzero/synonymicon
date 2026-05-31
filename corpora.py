@@ -3,141 +3,61 @@ import openpyxl
 from nltk.stem import WordNetLemmatizer
 from wordfreq import zipf_frequency as wordfreq_zipf
 
-SUBTLEX_ZIPF = {}
-GOOGLE_ZIPF = {}
-KAGGLE_ZIPF = {}
-OPENSUBS_ZIPF = {}
-GUTEN_ZIPF = {}
-WIKIPEDIA_ZIPF = {}
-LEIPZIG_NEWS_ZIPF = {}
-LEIPZIG_WEB_COM_ZIPF = {}
-LEIPZIG_WEB_UK_ZIPF = {}
-BNC_ZIPF = {}
 BNC_TOTAL = 85714226
+_BNC_OFFSET = math.log10(1e9 / BNC_TOTAL)  # per-billion normalization == log10(count * 1e9 / BNC_TOTAL)
+
+# corpus name -> dict[word, zipf]; populated once at import.
+_ZIPF_TABLES = {}
+
+# Count-based corpora. Counts are AGGREGATED (summed) per lowercased word before
+# the Zipf is computed, so POS-tagged duplicates (BNC: one row per POS tag) and
+# capitalization variants (Leipzig: the/The/THE as separate rows) are combined
+# rather than silently dropped. Each offset is calibrated so 'the' ~= 7.73, the
+# wordfreq anchor, for cross-corpus tier consistency.
+_COUNT_CORPORA = {
+    'google_1grams':    dict(path='data/google_1grams.txt',        word_col=0, count_col=1, offset=-2.634,     sep='\t', exact_cols=2),
+    'wikipedia':        dict(path='data/wikipedia_freq.txt',       word_col=0, count_col=1, offset=-0.5,                 exact_cols=2),
+    'kaggle':           dict(path='data/kaggle_freq.csv',          word_col=0, count_col=1, offset=-2.634,     sep=',',  exact_cols=2, skip_header=True),
+    'opensubtitles':    dict(path='data/hermitdave_freq.txt',      word_col=0, count_col=1, offset=0.37,                 exact_cols=2),
+    'gutenberg':        dict(path='data/scriptsmith_freq.txt',     word_col=1, count_col=0, offset=-0.5,                 exact_cols=2),
+    'leipzig_news':     dict(path='data/leipzig_news_2025.txt',    word_col=1, count_col=2, offset=1.6763,     sep='\t', exact_cols=3),
+    'leipzig_web_com':  dict(path='data/leipzig_web_com_2018.txt', word_col=1, count_col=2, offset=1.7779,     sep='\t', exact_cols=3),
+    'leipzig_web_uk':   dict(path='data/leipzig_web_uk_2018.txt',  word_col=1, count_col=2, offset=1.6987,     sep='\t', exact_cols=3),
+    'bnc':              dict(path='data/bnc_all.al',               word_col=1, count_col=0, offset=_BNC_OFFSET,           min_cols=4),
+}
 
 
-def _load_leipzig_news():
-    with open('data/leipzig_news_2025.txt') as f:
+def _load_counts(path, word_col, count_col, sep=None, skip_header=False, exact_cols=None, min_cols=None):
+    counts = {}
+    with open(path) as f:
+        if skip_header:
+            next(f, None)
         for line in f:
-            parts = line.split('\t')
-            if len(parts) != 3:
+            parts = line.split(sep) if sep is not None else line.split()
+            if exact_cols is not None and len(parts) != exact_cols:
+                continue
+            if min_cols is not None and len(parts) < min_cols:
+                continue
+            if len(parts) <= max(word_col, count_col):
                 continue
             try:
-                word = parts[1].lower()
-                count = int(parts[2].strip())
-                zipf_val = math.log10(count) + 1.74
-                LEIPZIG_NEWS_ZIPF.setdefault(word, zipf_val)
+                count = int(parts[count_col].strip())
             except ValueError:
                 continue
+            word = parts[word_col].strip().lower()
+            if not word:
+                continue
+            counts[word] = counts.get(word, 0) + count
+    return counts
 
 
-def _load_leipzig_web_com():
-    with open('data/leipzig_web_com_2018.txt') as f:
-        for line in f:
-            parts = line.split('\t')
-            if len(parts) != 3:
-                continue
-            try:
-                word = parts[1].lower()
-                count = int(parts[2].strip())
-                zipf_val = math.log10(count) + 1.83
-                LEIPZIG_WEB_COM_ZIPF.setdefault(word, zipf_val)
-            except ValueError:
-                continue
-
-
-def _load_leipzig_web_uk():
-    with open('data/leipzig_web_uk_2018.txt') as f:
-        for line in f:
-            parts = line.split('\t')
-            if len(parts) != 3:
-                continue
-            try:
-                word = parts[1].lower()
-                count = int(parts[2].strip())
-                zipf_val = math.log10(count) + 1.76
-                LEIPZIG_WEB_UK_ZIPF.setdefault(word, zipf_val)
-            except ValueError:
-                continue
-
-
-def _load_wikipedia():
-    with open('data/wikipedia_freq.txt') as f:
-        for line in f:
-            parts = line.split()
-            if len(parts) != 2:
-                continue
-            word, count_str = parts[0], parts[1]
-            try:
-                count = int(count_str)
-                zipf_val = math.log10(count) - 0.5
-                WIKIPEDIA_ZIPF[word.lower()] = zipf_val
-            except ValueError:
-                continue
-
-
-def _load_kaggle():
-    with open('data/kaggle_freq.csv') as f:
-        next(f)  # skip header: word,count
-        for line in f:
-            parts = line.strip().split(',')
-            if len(parts) != 2:
-                continue
-            word, count_str = parts[0], parts[1]
-            try:
-                count = int(count_str)
-                zipf_val = math.log10(count) + 3.0
-                KAGGLE_ZIPF[word.lower()] = zipf_val
-            except ValueError:
-                continue
-
-
-def _load_opensubtitles():
-    with open('data/hermitdave_freq.txt') as f:
-        for line in f:
-            parts = line.split()
-            if len(parts) != 2:
-                continue
-            word, count_str = parts[0], parts[1]
-            try:
-                count = int(count_str)
-                zipf_val = math.log10(count) + 0.37
-                OPENSUBS_ZIPF[word.lower()] = zipf_val
-            except ValueError:
-                continue
-
-
-def _load_gutenberg():
-    with open('data/scriptsmith_freq.txt') as f:
-        for line in f:
-            parts = line.split()
-            if len(parts) != 2:
-                continue
-            count_str, word = parts[0], parts[1]
-            try:
-                count = int(count_str)
-                zipf_val = math.log10(count) + 0.37
-                GUTEN_ZIPF[word.lower()] = zipf_val
-            except ValueError:
-                continue
-
-
-def _load_google():
-    with open('data/google_1grams.txt') as f:
-        for line in f:
-            parts = line.split('\t')
-            if len(parts) != 2:
-                continue
-            word, count_str = parts[0], parts[1]
-            try:
-                count = int(count_str)
-                zipf_val = math.log10(count) + 3.0
-                GOOGLE_ZIPF[word.lower()] = zipf_val
-            except ValueError:
-                continue
+def _zipf_from_counts(counts, offset):
+    return {w: math.log10(c) + offset for w, c in counts.items() if c > 0}
 
 
 def _load_subtlex():
+    # SUBTLEX-US ships pre-computed Zipf values (column index 14); no aggregation.
+    table = {}
     wb = openpyxl.load_workbook('data/subtlex_us.xlsx', read_only=True, data_only=True)
     ws = wb.active
     for i, row in enumerate(ws.iter_rows(values_only=True)):
@@ -146,25 +66,19 @@ def _load_subtlex():
         word = row[0]
         if not word or not isinstance(word, str):
             continue
-        zipf_val = row[14]  # Zipf-value column (index 14)
+        zipf_val = row[14]
         if zipf_val is not None:
-            SUBTLEX_ZIPF[word.lower()] = float(zipf_val)
+            table[word.lower()] = float(zipf_val)
     wb.close()
+    return table
 
 
-def _load_bnc():
-    with open('data/bnc_all.al') as f:
-        for line in f:
-            parts = line.split()
-            if len(parts) < 4:
-                continue
-            try:
-                freq = int(parts[0])
-                word = parts[1]
-                zipf_val = math.log10(freq * (1_000_000_000 / BNC_TOTAL))
-                BNC_ZIPF[word.lower()] = zipf_val
-            except ValueError:
-                continue
+def _load_all():
+    for name, spec in _COUNT_CORPORA.items():
+        offset = spec['offset']
+        parse_args = {k: v for k, v in spec.items() if k != 'offset'}
+        _ZIPF_TABLES[name] = _zipf_from_counts(_load_counts(**parse_args), offset)
+    _ZIPF_TABLES['subtlex'] = _load_subtlex()
 
 
 _LEMMATIZER = WordNetLemmatizer()
@@ -172,41 +86,22 @@ _LEMMATIZER = WordNetLemmatizer()
 
 def get_zipf(word, corpus='wordfreq'):
     wl = word.lower()
-    if corpus == 'subtlex':
-        return SUBTLEX_ZIPF.get(wl)
+    if corpus == 'wordfreq':
+        z = wordfreq_zipf(wl, 'en')
+        # wordfreq returns 0.0 for unknown words; treat that as None so OOV words
+        # are dropped uniformly, matching the dict-backed corpora.
+        return z if z > 0 else None
     if corpus == 'bnc':
-        lemma = _LEMMATIZER.lemmatize(wl)
-        z = BNC_ZIPF.get(lemma)
+        # BNC surface forms are lemmatized; try noun lemma first, then verb.
+        table = _ZIPF_TABLES['bnc']
+        z = table.get(_LEMMATIZER.lemmatize(wl))
         if z is None:
-            lemma = _LEMMATIZER.lemmatize(wl, 'v')
-            z = BNC_ZIPF.get(lemma)
+            z = table.get(_LEMMATIZER.lemmatize(wl, 'v'))
         return z
-    if corpus == 'google_1grams':
-        return GOOGLE_ZIPF.get(wl)
-    if corpus == 'wikipedia':
-        return WIKIPEDIA_ZIPF.get(wl)
-    if corpus == 'kaggle':
-        return KAGGLE_ZIPF.get(wl)
-    if corpus == 'opensubtitles':
-        return OPENSUBS_ZIPF.get(wl)
-    if corpus == 'gutenberg':
-        return GUTEN_ZIPF.get(wl)
-    if corpus == 'leipzig_news':
-        return LEIPZIG_NEWS_ZIPF.get(wl)
-    if corpus == 'leipzig_web_com':
-        return LEIPZIG_WEB_COM_ZIPF.get(wl)
-    if corpus == 'leipzig_web_uk':
-        return LEIPZIG_WEB_UK_ZIPF.get(wl)
-    return wordfreq_zipf(wl, 'en')
+    table = _ZIPF_TABLES.get(corpus)
+    if table is None:
+        return None
+    return table.get(wl)
 
 
-_load_leipzig_news()
-_load_leipzig_web_com()
-_load_leipzig_web_uk()
-_load_opensubtitles()
-_load_gutenberg()
-_load_kaggle()
-_load_wikipedia()
-_load_google()
-_load_subtlex()
-_load_bnc()
+_load_all()

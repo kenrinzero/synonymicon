@@ -99,4 +99,7 @@ def synonyms():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    import os
+    # Debug (Werkzeug reloader + interactive debugger) is off by default; opt in
+    # with FLASK_DEBUG=1 for local use only. Production runs via gunicorn.
+    app.run(debug=os.environ.get('FLASK_DEBUG') == '1')
