@@ -220,3 +220,22 @@ class TestPOS:
         nouns = {e['word'] for e in get_results(r_noun)}
         verbs = {e['word'] for e in get_results(r_verb)}
         assert nouns != verbs or (len(nouns) == 0 and len(verbs) == 0)
+
+
+@pytest.mark.slow
+class TestFastText:
+    """Integration tests that require fastText (SYNONYMICON_FASTTEXT=1).
+
+    Run with: SYNONYMICON_FASTTEXT=1 pytest -m slow
+    These tests are skipped by default because the fastText model (~1 GB)
+    adds ~3 minutes to startup and is not needed for the hermetic suite.
+    """
+
+    def test_fasttext_enabled(self, client):
+        """Verify fastText blending contributes candidates."""
+        import config
+        assert config.FASTTEXT_ENABLED, "fastText not enabled; run with SYNONYMICON_FASTTEXT=1"
+        r = client.get('/synonyms?word=happy&tier=all')
+        assert r.status_code == 200
+        results = get_results(r)
+        assert len(results) > 0

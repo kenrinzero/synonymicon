@@ -1,10 +1,56 @@
 from concurrent.futures import ThreadPoolExecutor
+import json
+import logging
+import sys
+import time
 from flask import Flask, request, jsonify
 from config import TIERS, POS_MAP, MAX_DEFINITION_LENGTH, VALID_POS, VALID_RANKS, VALID_CORPORA
 from candidates import get_blended_results, get_blended_results_multi, get_band_label, get_senses
+from corpora import get_zipf
 from definitions import get_definition
 
 app = Flask(__name__)
+
+# Minimal structured logging: JSON-formatted request/error records to stderr.
+_logger = logging.getLogger('synonymicon')
+_handler = logging.StreamHandler(sys.stderr)
+_handler.setFormatter(logging.Formatter('%(message)s'))
+_logger.addHandler(_handler)
+_logger.setLevel(logging.INFO)
+
+
+def _log_json(event, **kwargs):
+    payload = {'event': event, 'timestamp': time.time()}
+    payload.update(kwargs)
+    _logger.info(json.dumps(payload))
+
+
+@app.after_request
+def _after_request(response):
+    _log_json('request', method=request.method, path=request.path,
+              status=response.status_code, remote_addr=request.remote_addr)
+    return response
+
+# Simple token-bucket rate limiter: ~60 requests per minute per IP.
+# No external dependency; in-memory and process-local.
+_RATE_LIMIT = 60  # requests per window
+_RATE_WINDOW = 60  # seconds
+_buckets: dict[str, tuple[float, int]] = {}
+
+def _rate_limit():
+    ip = request.remote_addr or '127.0.0.1'
+    now = time.time()
+    if ip in _buckets:
+        window_start, count = _buckets[ip]
+        if now - window_start >= _RATE_WINDOW:
+            _buckets[ip] = (now, 1)
+            return None
+        if count >= _RATE_LIMIT:
+            return jsonify({'error': 'rate limit exceeded, try again later'}), 429
+        _buckets[ip] = (window_start, count + 1)
+    else:
+        _buckets[ip] = (now, 1)
+    return None
 
 
 @app.route('/')
@@ -12,8 +58,35 @@ def index():
     return app.send_static_file('index.html')
 
 
+@app.route('/health')
+def health():
+    status = {'status': 'ok', 'checks': {}}
+    try:
+        from nltk.corpus import wordnet
+        wordnet.synsets('test')
+        status['checks']['wordnet'] = 'ok'
+    except (ImportError, AttributeError, KeyError) as e:
+        status['checks']['wordnet'] = 'fail'
+        status['status'] = 'error'
+    try:
+        from corpora import LOADED_CORPORA
+        if LOADED_CORPORA:
+            status['checks']['corpora'] = f'{len(LOADED_CORPORA)} loaded'
+        else:
+            status['checks']['corpora'] = 'none'
+            status['status'] = 'error'
+    except (ImportError, NameError):
+        status['checks']['corpora'] = 'fail'
+        status['status'] = 'error'
+    code = 200 if status['status'] == 'ok' else 503
+    return jsonify(status), code
+
+
 @app.route('/synonyms')
 def synonyms():
+    limited = _rate_limit()
+    if limited:
+        return limited
     word = request.args.get('word')
     if not word:
         return jsonify({'error': 'missing required parameter: word'}), 400
@@ -80,6 +153,9 @@ def synonyms():
 
     senses = get_senses(word, pos_filter) if len(words_in_phrase) == 1 else []
 
+    # Check if the query word exists in the selected corpus's frequency table.
+    query_in_corpus = get_zipf(word, corpus_raw) is not None if len(words_in_phrase) == 1 else None
+
     words = [w for w, z in results]
     with ThreadPoolExecutor(max_workers=10) as pool:
         definitions = list(pool.map(get_definition, words))
@@ -91,6 +167,7 @@ def synonyms():
 
     return jsonify({
         'senses': senses,
+        'query_in_corpus': query_in_corpus,
         'results': [
             {'word': w, 'zipf': z, 'definition': truncate(d), 'band': get_band_label(z)}
             for (w, z), d in zip(results, definitions)

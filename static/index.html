@@ -607,6 +607,44 @@
       letter-spacing: 0;
     }
 
+    .copy-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.5rem;
+      height: 1.5rem;
+      margin-left: 0.5rem;
+      vertical-align: middle;
+      background: none;
+      border: 1px solid transparent;
+      border-radius: 0.25rem;
+      color: var(--foreground-faint);
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity var(--page-transition), color var(--page-transition), border-color var(--page-transition);
+      padding: 0;
+    }
+
+    .copy-btn svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    .entry:hover .copy-btn,
+    .copy-btn:focus {
+      opacity: 1;
+    }
+
+    .copy-btn:hover {
+      color: var(--foreground);
+      border-color: var(--border);
+    }
+
+    .copy-btn.copied {
+      color: var(--foreground);
+      border-color: var(--foreground);
+    }
+
     .entry-def {
       font-family: var(--font-serif);
       font-style: italic;
@@ -750,6 +788,26 @@
       gap: 1.5rem;
     }
 
+    .footer-shortcuts {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      font-family: var(--font-sans);
+      font-size: 0.75rem;
+      color: var(--foreground-faint);
+    }
+
+    .footer-shortcuts kbd {
+      display: inline-block;
+      padding: 0.125rem 0.375rem;
+      font-family: var(--font-sans);
+      font-size: 0.6875rem;
+      color: var(--foreground-muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.25rem;
+    }
+
     .footer-link {
       background: transparent;
       border: none;
@@ -861,6 +919,10 @@
         height: 3rem;
       }
 
+      footer .footer-shortcuts {
+        display: none;
+      }
+
       footer .footer-link#about-button {
         display: none;
       }
@@ -953,6 +1015,12 @@
 
     <footer>
       <button id="theme-button" class="footer-link" type="button">lumen</button>
+      <div class="footer-shortcuts">
+        <span><kbd>1</kbd>-<kbd>5</kbd> frequency</span>
+        <span><kbd>←</kbd><kbd>→</kbd> page</span>
+        <span><kbd>/</kbd> search</span>
+        <span><kbd>Esc</kbd> reset</span>
+      </div>
       <button id="about-button" class="footer-link" type="button">corpora</button>
     </footer>
   </div>
@@ -1001,6 +1069,7 @@
     let selectedRank = "common";
     let lastSearchedWord = "";
     let isLoading = false;
+    let queryInCorpus = null;  // null = not fetched, true/false = word exists/missing in corpus
 
     // ────────────────────────────────────────────────────────────
     // DOM refs
@@ -1095,9 +1164,6 @@
       const div = document.createElement("div");
       div.className = "entry";
 
-      // Not a document heading — it's a navigable list item. role/tabindex/keydown
-      // make pivot-on-click reachable by keyboard and AT (mirrors the brand element)
-      // without changing the visual treatment.
       const headword = document.createElement("div");
       headword.className = "entry-headword";
       headword.textContent = entry.word;
@@ -1110,6 +1176,20 @@
         zipf.textContent = entry.zipf.toFixed(1);
         headword.appendChild(zipf);
       }
+
+      // Copy button — appears on hover/focus
+      const copyBtn = document.createElement("button");
+      copyBtn.className = "copy-btn";
+      copyBtn.setAttribute("aria-label", `Copy "${entry.word}"`);
+      copyBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+      copyBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(entry.word).then(() => {
+          copyBtn.classList.add("copied");
+          setTimeout(() => copyBtn.classList.remove("copied"), 1200);
+        }).catch(() => {});
+      });
+      headword.appendChild(copyBtn);
 
       const pivot = () => pivotToWord(entry.word);
       headword.addEventListener("click", pivot);
@@ -1276,6 +1356,7 @@
         "Xiaomi MiMo-V2-Pro",
         "Xiaomi MiMo-V2.5-Pro",
         "MiniMax M2.7",
+        "KAT-Coder-Pro V2",
       ],
     };
 
@@ -1297,29 +1378,22 @@
     function renderAbout() {
       grid.innerHTML = "";
       grid.classList.remove("with-peek", "no-peek");
-      grid.style.gridTemplateColumns = "repeat(4, 1fr)";
+      const cols = getAboutColumns();
+      grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
       grid.style.width = "100%";
 
-      // Build corpus columns (3 per col, col 1-3)
-      const colGroups = [
-        CORPUS_DATA.slice(0, 3),
-        CORPUS_DATA.slice(3, 6),
-        CORPUS_DATA.slice(6, 9),
-      ];
-
-      colGroups.forEach(group => {
+      // Build all corpus entries as DOM nodes
+      const corpusCells = CORPUS_DATA.map(item => {
         const cell = document.createElement("div");
         cell.className = "column-cell";
         const inner = document.createElement("div");
         inner.className = "column-inner";
-        group.forEach(item => {
-          inner.appendChild(makeAboutEntry(item));
-        });
+        inner.appendChild(makeAboutEntry(item));
         cell.appendChild(inner);
-        grid.appendChild(cell);
+        return cell;
       });
 
-      // Fourth column: frequency explanation
+      // Build frequency explanation cell
       const freqCell = document.createElement("div");
       freqCell.className = "column-cell";
       const freqInner = document.createElement("div");
@@ -1337,7 +1411,6 @@
         freqInner.appendChild(p);
       });
 
-      // AI models sub-section
       const modelsHeading = document.createElement("h2");
       modelsHeading.className = "about-heading";
       modelsHeading.style.marginTop = "2rem";
@@ -1356,9 +1429,81 @@
         modelList.appendChild(li);
       });
       freqInner.appendChild(modelList);
-
       freqCell.appendChild(freqInner);
-      grid.appendChild(freqCell);
+
+      // Distribute cells across columns
+      if (cols >= 4) {
+        // 4 columns: 3 corpus per column + freq in column 4
+        const groups = [
+          corpusCells.slice(0, 3),
+          corpusCells.slice(3, 6),
+          corpusCells.slice(6, 9),
+        ];
+        groups.forEach(group => {
+          const colCell = document.createElement("div");
+          colCell.className = "column-cell";
+          const colInner = document.createElement("div");
+          colInner.className = "column-inner";
+          group.forEach(c => {
+            while (c.firstChild) colInner.appendChild(c.firstChild);
+          });
+          colCell.appendChild(colInner);
+          grid.appendChild(colCell);
+        });
+        grid.appendChild(freqCell);
+      } else if (cols === 3) {
+        // 3 columns: 3 corpus per column, freq appended to last
+        const colGroups = [corpusCells.slice(0, 3), corpusCells.slice(3, 6), corpusCells.slice(6, 9)];
+        colGroups.forEach((group, i) => {
+          const cell = document.createElement("div");
+          cell.className = "column-cell";
+          const inner = document.createElement("div");
+          inner.className = "column-inner";
+          group.forEach(c => {
+            // Move the inner content from corpus cell
+            while (c.firstChild) inner.appendChild(c.firstChild);
+          });
+          if (i === 2) inner.appendChild(freqInner);
+          cell.appendChild(inner);
+          grid.appendChild(cell);
+        });
+      } else if (cols === 2) {
+        // 2 columns: 5 corpus in col 1, 4 corpus + freq in col 2
+        const col1 = document.createElement("div");
+        col1.className = "column-cell";
+        const inner1 = document.createElement("div");
+        inner1.className = "column-inner";
+        corpusCells.slice(0, 5).forEach(c => { while (c.firstChild) inner1.appendChild(c.firstChild); });
+        col1.appendChild(inner1);
+        grid.appendChild(col1);
+
+        const col2 = document.createElement("div");
+        col2.className = "column-cell";
+        const inner2 = document.createElement("div");
+        inner2.className = "column-inner";
+        corpusCells.slice(5, 9).forEach(c => { while (c.firstChild) inner2.appendChild(c.firstChild); });
+        inner2.appendChild(freqInner);
+        col2.appendChild(inner2);
+        grid.appendChild(col2);
+      } else {
+        // 1 column: stack all
+        const cell = document.createElement("div");
+        cell.className = "column-cell";
+        const inner = document.createElement("div");
+        inner.className = "column-inner";
+        corpusCells.forEach(c => { while (c.firstChild) inner.appendChild(c.firstChild); });
+        inner.appendChild(freqInner);
+        cell.appendChild(inner);
+        grid.appendChild(cell);
+      }
+    }
+
+    function getAboutColumns() {
+      const w = window.innerWidth;
+      if (w >= 1400) return 4;
+      if (w >= 1000) return 3;
+      if (w >= 700)  return 2;
+      return 1;
     }
 
     function makeAboutEntry(item) {
@@ -1393,6 +1538,7 @@
       const itemsPerCol = calculateItemsPerColumn();
       const allColumns = chunkIntoColumns(results, itemsPerCol);
       const pages = chunkIntoPages(allColumns, colsPerPage);
+      pageCount = pages.length;
 
       if (currentPage >= pages.length) currentPage = pages.length - 1;
       if (currentPage < 0) currentPage = 0;
@@ -1423,9 +1569,13 @@
         cell.style.cssText = "grid-column:1/-1;display:grid;place-items:center;";
         const msg = document.createElement("span");
         msg.style.cssText = "padding:2.5rem 2rem;font-family:var(--font-serif);font-style:italic;font-size:1.0625rem;color:var(--foreground-muted);text-align:center;";
-        msg.textContent = lastSearchedWord
-          ? "no synonyms found in this band — try a wider frequency"
-          : "begin with a word";
+        if (!lastSearchedWord) {
+          msg.textContent = "begin with a word";
+        } else if (queryInCorpus === false) {
+          msg.textContent = "no frequency data for this word in the selected corpus";
+        } else {
+          msg.textContent = "no synonyms found in this band — try a wider frequency";
+        }
         cell.appendChild(msg);
         grid.appendChild(cell);
       } else {
@@ -1515,6 +1665,7 @@
         }
         const data = await res.json();
         results = data.results || [];
+        queryInCorpus = data.query_in_corpus;
         renderSenses(data.senses || []);
         currentPage = 0;
       } catch (err) {
@@ -1912,6 +2063,7 @@
         lastSearchedWord = "";
         results = [];
         currentPage = 0;
+        queryInCorpus = null;
         senseBar.innerHTML = "";
         if (abortController) abortController.abort();
         render();
@@ -1942,10 +2094,82 @@
     applyTheme();
 
     // ────────────────────────────────────────────────────────────
+    // Keyboard shortcuts
+    // ────────────────────────────────────────────────────────────
+    document.addEventListener("keydown", (e) => {
+      // Ignore if typing in an input or focused on a clickable element
+      if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.isContentEditable) return;
+
+      if (e.key === "/") {
+        e.preventDefault();
+        searchInput.focus();
+        return;
+      }
+
+      if (e.key === "Escape") {
+        if (currentView === "search") {
+          e.preventDefault();
+          searchInput.value = "";
+          lastSearchedWord = "";
+          results = [];
+          currentPage = 0;
+          queryInCorpus = null;
+          senseBar.innerHTML = "";
+          if (abortController) abortController.abort();
+          render();
+          history.replaceState(null, "", window.location.pathname);
+        }
+        return;
+      }
+
+      // Number keys 1-5 select frequency bands (only when dropdown is closed)
+      const bandKeys = ["all", "common", "uncommon", "rare", "exotic", "absurd"];
+      const num = parseInt(e.key, 10);
+      if (num >= 1 && num <= 5 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const bandValue = bandKeys[num];
+        if (bandValue && !isDropdownOpen()) {
+          e.preventDefault();
+          selectedTiers = new Set([bandValue]);
+          refreshFreqMenu();
+          if (lastSearchedWord) fetchSynonyms(lastSearchedWord);
+        }
+      }
+
+      // Left/right arrows navigate pages (only when dropdown is closed)
+      if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && currentView === "search" && !isDropdownOpen()) {
+        e.preventDefault();
+        if (e.key === "ArrowLeft" && currentPage > 0) {
+          currentPage--;
+          render();
+        } else if (e.key === "ArrowRight" && pageCount > 0 && currentPage < pageCount - 1) {
+          currentPage++;
+          render();
+        }
+      }
+    });
+
+    function isDropdownOpen() {
+      return freqButton.getAttribute("aria-expanded") === "true"
+          || posButton.getAttribute("aria-expanded") === "true"
+          || corpusButton.getAttribute("aria-expanded") === "true"
+          || sortButton.getAttribute("aria-expanded") === "true";
+    }
+
+    let pageCount = 1;  // updated in render()
+
+    // ────────────────────────────────────────────────────────────
     // About / corpora button
     // ────────────────────────────────────────────────────────────
     const aboutButton = document.getElementById("about-button");
     aboutButton.addEventListener("click", showAboutView);
+
+    // Responsive about view: re-render when window crosses column breakpoints.
+    let aboutResizeTimer = null;
+    window.addEventListener("resize", () => {
+      if (currentView !== "about") return;
+      clearTimeout(aboutResizeTimer);
+      aboutResizeTimer = setTimeout(() => renderAbout(), 150);
+    });
 
     // ────────────────────────────────────────────────────────────
     // Init

@@ -1,4 +1,5 @@
 import math
+import sys
 import openpyxl
 from nltk.stem import WordNetLemmatizer
 from wordfreq import zipf_frequency as wordfreq_zipf
@@ -8,6 +9,11 @@ _BNC_OFFSET = math.log10(1e9 / BNC_TOTAL)  # per-billion normalization == log10(
 
 # corpus name -> dict[word, zipf]; populated once at import.
 _ZIPF_TABLES = {}
+
+# Set of corpus names that loaded successfully. Exported so the app can
+# prune VALID_CORPORA if any corpus failed to load at startup.
+# 'wordfreq' is always available (computed at query time via the wordfreq library).
+LOADED_CORPORA = {'wordfreq'}
 
 # Count-based corpora. Counts are AGGREGATED (summed) per lowercased word before
 # the Zipf is computed, so POS-tagged duplicates (BNC: one row per POS tag) and
@@ -75,10 +81,18 @@ def _load_subtlex():
 
 def _load_all():
     for name, spec in _COUNT_CORPORA.items():
-        offset = spec['offset']
-        parse_args = {k: v for k, v in spec.items() if k != 'offset'}
-        _ZIPF_TABLES[name] = _zipf_from_counts(_load_counts(**parse_args), offset)
-    _ZIPF_TABLES['subtlex'] = _load_subtlex()
+        try:
+            offset = spec['offset']
+            parse_args = {k: v for k, v in spec.items() if k != 'offset'}
+            _ZIPF_TABLES[name] = _zipf_from_counts(_load_counts(**parse_args), offset)
+            LOADED_CORPORA.add(name)
+        except Exception as e:
+            print(f'WARNING: corpus "{name}" failed to load ({e}), skipping', file=sys.stderr)
+    try:
+        _ZIPF_TABLES['subtlex'] = _load_subtlex()
+        LOADED_CORPORA.add('subtlex')
+    except Exception as e:
+        print(f'WARNING: corpus "subtlex" failed to load ({e}), skipping', file=sys.stderr)
 
 
 _LEMMATIZER = WordNetLemmatizer()

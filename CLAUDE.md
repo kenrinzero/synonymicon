@@ -113,12 +113,13 @@ Blended single list, no source labels exposed in UI:
 
 ```json
 {
-  "senses":  [{"id": "<synset>", "gloss": "...", "pos": "noun"}],
-  "results": [{"word": "...", "zipf": 3.4, "definition": "...", "band": "uncommon"}]
+  "senses":          [{"id": "<synset>", "gloss": "...", "pos": "noun"}],
+  "query_in_corpus": true,
+  "results":         [{"word": "...", "zipf": 3.4, "definition": "...", "band": "uncommon"}]
 }
 ```
 
-`senses` is WordNet sense metadata for the query (capped at 8, filtered by `pos` when set, empty `[]` for 2-word phrases). `results` is the blended/sorted/frequency-filtered candidate list.
+`senses` is WordNet sense metadata for the query (capped at 8, filtered by `pos` when set, empty `[]` for 2-word phrases). `results` is the blended/sorted/frequency-filtered candidate list. `query_in_corpus` is `true`/`false` for single-word queries (whether the word exists in the selected corpus's frequency table), or `null` for 2-word phrases.
 
 Valid `tier` values: `all` (default), `common`, `uncommon`, `rare`, `exotic`, `absurd`. Comma-separated lists accepted (`tier=uncommon,rare`).
 

@@ -35,3 +35,12 @@ def client():
     flask_app.config['TESTING'] = True
     with flask_app.test_client() as c:
         yield c
+
+
+def pytest_collection_modifyitems(config, items):
+    """Skip fastText tests unless SYNONYMICON_FASTTEXT=1 is set."""
+    if os.environ.get('SYNONYMICON_FASTTEXT') != '1':
+        skip_fasttext = pytest.mark.skip(reason="fastText disabled; run with SYNONYMICON_FASTTEXT=1")
+        for item in items:
+            if 'fasttext' in item.nodeid.lower():
+                item.add_marker(skip_fasttext)

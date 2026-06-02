@@ -12,6 +12,7 @@ Live at [synonymicon.xyz](https://synonymicon.xyz).
 - Xiaomi MiMo-V2-Pro
 - Xiaomi MiMo-V2.5-Pro
 - MiniMax M2.7
+- KAT-Coder-Pro V2
 
 ## Stack
 
@@ -72,12 +73,13 @@ Returns a JSON object:
 
 ```json
 {
-  "senses":  [{"id": "happy.a.01", "gloss": "...", "pos": "adj"}],
-  "results": [{"word": "...", "zipf": 3.4, "definition": "...", "band": "uncommon"}]
+  "senses":          [{"id": "happy.a.01", "gloss": "...", "pos": "adj"}],
+  "query_in_corpus": true,
+  "results":         [{"word": "...", "zipf": 3.4, "definition": "...", "band": "uncommon"}]
 }
 ```
 
-`senses` is WordNet sense metadata for the query (capped at 8, filtered by `pos`, empty for 2-word phrases); `results` is the blended, sorted, frequency-filtered candidate list.
+`senses` is WordNet sense metadata for the query (capped at 8, filtered by `pos`, empty for 2-word phrases); `results` is the blended, sorted, frequency-filtered candidate list. `query_in_corpus` indicates whether the queried word exists in the selected corpus's frequency table (`null` for phrases).
 
 | Param  | Values |
 |--------|--------|
