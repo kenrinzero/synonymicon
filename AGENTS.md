@@ -1,3 +1,11 @@
+<!-- Managed under atelier. -->
+
+> **Managed under atelier.** Before starting, read
+> `C:\Users\kenrin\Project\.atelier\CHARTER.md` (from WSL:
+> `/mnt/c/Users/kenrin/Project/.atelier/CHARTER.md`), the current week log in
+> `.atelier/logs/`, and this project's brief + log at
+> `.atelier/projects/coding/synonymicon/`. Clock out per the charter when done.
+
 # Agent Notes — Improvement Backlog
 
 Last updated: Tue Jun 02 2026 (Session: opencode exploration + full audit)
