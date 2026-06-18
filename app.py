@@ -27,6 +27,12 @@ def _log_json(event, **kwargs):
 
 @app.after_request
 def _after_request(response):
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'self'; "
+        "font-src https://fonts.gstatic.com; "
+        "style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; "
+        "script-src 'unsafe-inline'"
+    )
     _log_json('request', method=request.method, path=request.path,
               status=response.status_code, remote_addr=request.remote_addr)
     return response
@@ -40,6 +46,9 @@ _buckets: dict[str, tuple[float, int]] = {}
 def _rate_limit():
     ip = request.remote_addr or '127.0.0.1'
     now = time.time()
+    stale = [k for k, (ws, _) in _buckets.items() if now - ws >= _RATE_WINDOW * 2]
+    for k in stale:
+        del _buckets[k]
     if ip in _buckets:
         window_start, count = _buckets[ip]
         if now - window_start >= _RATE_WINDOW:

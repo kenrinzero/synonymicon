@@ -31,5 +31,5 @@ _ALL_CORPORA = {
 try:
     from corpora import LOADED_CORPORA
     VALID_CORPORA = _ALL_CORPORA & LOADED_CORPORA
-except Exception:
+except (ImportError, NameError):
     VALID_CORPORA = _ALL_CORPORA
